@@ -161,3 +161,7 @@ cython_debug/
 
 # Keys folder
 .keys/
+
+# Firebase Key
+firebase_table-key.json
+keys/firebase_table-key.json
