@@ -5,9 +5,10 @@ using Newtonsoft.Json;
 
 namespace realtimeLogic
 {
-    public class Marker
+    public class Marker : parsedObject
     {
         public string uuid { get; set; }
+        public string name { get; set; }
         [JsonProperty ("id")]
         public int id { get; set; }
         [JsonProperty ("x")]
@@ -16,5 +17,9 @@ namespace realtimeLogic
         public int y { get; set; }
         [JsonProperty ("rotation")]
         public float rotation { get; set; }
+
+        public Marker()
+        {
+        }
     }
 }
