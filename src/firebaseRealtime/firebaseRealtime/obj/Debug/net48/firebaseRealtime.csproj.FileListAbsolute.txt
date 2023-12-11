@@ -1,0 +1,14 @@
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\firebaseRealtime.gha
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\firebaseRealtime.pdb
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Firebase.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\LiteDB.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Newtonsoft.Json.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\System.Reactive.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.csproj.AssemblyReference.cache
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.AssemblyInfoInputs.cache
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.AssemblyInfo.cs
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.csproj.CoreCompileInputs.cache
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.csproj.CopyComplete
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.gha
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.pdb

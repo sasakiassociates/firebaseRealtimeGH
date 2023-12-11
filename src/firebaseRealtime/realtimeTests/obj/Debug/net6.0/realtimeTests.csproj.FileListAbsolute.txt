@@ -100,3 +100,14 @@ C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realt
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\obj\Debug\net6.0\realtimeTests.pdb
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\obj\Debug\net6.0\realtimeTests.genruntimeconfig.cache
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\obj\Debug\net6.0\ref\realtimeTests.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\Firebase.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\LiteDB.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\System.Reactive.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\System.Runtime.InteropServices.WindowsRuntime.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\Google.Apis.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\Google.Apis.Auth.PlatformServices.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\Google.Apis.Auth.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\Google.Apis.Core.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\System.CodeDom.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\System.Management.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\realtimeTests\bin\Debug\net6.0\runtimes\win\lib\net6.0\System.Management.dll
