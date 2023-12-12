@@ -12,3 +12,11 @@ C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\fireb
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.csproj.CopyComplete
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.gha
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\obj\Debug\net48\firebaseRealtime.pdb
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Google.Apis.PlatformServices.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Google.Apis.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Google.Apis.Auth.PlatformServices.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Google.Apis.Auth.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\Google.Apis.Core.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\System.CodeDom.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\realtimeLogic.dll
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\firebaseRealtime\firebaseRealtime\bin\Debug\net48\realtimeLogic.pdb

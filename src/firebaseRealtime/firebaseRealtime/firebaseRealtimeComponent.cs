@@ -7,6 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using realtimeLogic;
+using Firebase.Database;
+using Firebase.Database.Query;
+using Google.Apis.Auth.OAuth2;
+using Newtonsoft.Json;
 
 namespace firebaseRealtime
 {
@@ -15,6 +19,10 @@ namespace firebaseRealtime
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
         private Repository<Marker> repository;
+        public List<Marker> incomingData = new List<Marker>();
+
+        public string keyDirectory = "";
+        public string url = "";
 
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -28,7 +36,7 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
-            Repository<Marker> repository = Repository<Marker>.Instance;
+            repository = Repository<Marker>.GetInstance;
         }
 
         /// <summary>
@@ -36,7 +44,8 @@ namespace firebaseRealtime
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Key", "K", "Key", GH_ParamAccess.item);
+            pManager.AddTextParameter("Key directory", "K", "Key", GH_ParamAccess.item);
+            pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -44,7 +53,7 @@ namespace firebaseRealtime
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Incoming Json", "JSON", "Incoming Json", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Incoming Data", "Data", "Incoming Data", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -54,19 +63,57 @@ namespace firebaseRealtime
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            DA.GetData("Key directory", ref keyDirectory);
+            DA.GetData("Database URL", ref url);
 
+            if (cancellationTokenSource == null)
+            {
+                cancellationTokenSource = new CancellationTokenSource();
+                cancellationToken = cancellationTokenSource.Token;
+                Task.Run(() => ListenThread(cancellationToken));
+            }
+
+            DA.SetDataList("Incoming Data", repository.parsedObjectList);
         }
 
         private async Task ListenThread(CancellationToken cancellationToken)
         {
+            repository.Subscribe();
+
             while (!cancellationToken.IsCancellationRequested)
             {
-                // Get the incoming data from the firebase realtime database
+                List<Marker> markers = repository.WaitForNewData(cancellationToken);
 
-                // Check if it's new
-
-                // If it's new, send it to the output
+                // Rerun the component
+                Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+                {
+                    this.ExpireSolution(true);
+                });
             }
+
+            repository.Unsubscribe();
+        }
+
+        /// <summary>
+        /// Append additional menu items to the main component menu.
+        /// </summary>
+        /// <param name="document"></param>
+        public override void AppendAdditionalMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            // Add a cancel option to the menu to trigger the cancellation token
+            Menu_AppendItem(menu, "Cancel", CancelClicked);
+        }
+
+        private void CancelClicked(object sender, EventArgs e)
+        {
+            cancellationTokenSource.Cancel();
+        }
+
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            cancellationTokenSource.Cancel();
+            base.RemovedFromDocument(document);
         }
 
         /// <summary>

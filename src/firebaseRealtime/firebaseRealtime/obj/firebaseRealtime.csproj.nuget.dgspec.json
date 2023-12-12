@@ -53,10 +53,30 @@
               "target": "Package",
               "version": "[4.2.0, )"
             },
+            "Google.Apis.Auth": {
+              "target": "Package",
+              "version": "[1.64.0, )"
+            },
             "Grasshopper": {
               "include": "Compile, Build",
               "target": "Package",
               "version": "[7.13.21348.13001, )"
+            },
+            "LiteDB": {
+              "target": "Package",
+              "version": "[5.0.17, )"
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            },
+            "RhinoCommon": {
+              "target": "Package",
+              "version": "[7.13.21348.13001, )"
+            },
+            "System.Reactive": {
+              "target": "Package",
+              "version": "[4.0.0, )"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.401\\RuntimeIdentifierGraph.json"
@@ -117,10 +137,6 @@
               "target": "Package",
               "version": "[2.0.3, )",
               "autoReferenced": true
-            },
-            "NUnit": {
-              "target": "Package",
-              "version": "[3.13.3, )"
             }
           },
           "imports": [

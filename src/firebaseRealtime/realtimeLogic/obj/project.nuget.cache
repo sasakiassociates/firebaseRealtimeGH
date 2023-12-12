@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "YqKTZO1BDpTy4T6yg/X2XivE3v6VOslluF4UzuI7AaRminAVzo9D+Qfqn9KvKzdLcl+BQPW0KrWMcBsdJ3LSWA==",
+  "dgSpecHash": "JSTL5w9+ed8+h4FA48K8wkMm/MvgkWzXEoMvJbZL17Nm/WP2atVW5438lfpT04pqKdaxiKfqZiQQymlpNmnY0g==",
   "success": true,
   "projectFilePath": "C:\\Users\\nshikada\\Documents\\GitHub\\firebaseRealtimeGH\\src\\firebaseRealtime\\realtimeLogic\\realtimeLogic.csproj",
   "expectedPackageFiles": [
@@ -13,7 +13,6 @@
     "C:\\Users\\nshikada\\.nuget\\packages\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
     "C:\\Users\\nshikada\\.nuget\\packages\\netstandard.library\\2.0.3\\netstandard.library.2.0.3.nupkg.sha512",
     "C:\\Users\\nshikada\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
-    "C:\\Users\\nshikada\\.nuget\\packages\\nunit\\3.13.3\\nunit.3.13.3.nupkg.sha512",
     "C:\\Users\\nshikada\\.nuget\\packages\\system.codedom\\7.0.0\\system.codedom.7.0.0.nupkg.sha512",
     "C:\\Users\\nshikada\\.nuget\\packages\\system.io\\4.3.0\\system.io.4.3.0.nupkg.sha512",
     "C:\\Users\\nshikada\\.nuget\\packages\\system.management\\7.0.2\\system.management.7.0.2.nupkg.sha512",

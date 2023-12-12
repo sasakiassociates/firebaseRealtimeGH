@@ -3,53 +3,42 @@ using System.Threading.Tasks;
 using Firebase.Database;
 using Firebase.Database.Query;
 using Google.Apis.Auth.OAuth2;
-using NUnit.Framework;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Reactive;
+using System.Threading;
 
 namespace realtimeLogic
 {
     public class Repository<T> where T : parsedObject
     {
-        public static readonly Repository<T> Instance = new Repository<T>();
+        private static readonly object lockObject = new object();
+        private static readonly Repository<T> instance;
+        public static Repository<T> GetInstance
+        {
+            get
+            {
+                lock (lockObject)
+                {
+                    if (instance == null)
+                    {
+                        return new Repository<T>();
+                    }
+                    else
+                    {
+                        return instance;
+                    }
+                }
+            }
+        }
         private const string FirebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         private readonly FirebaseClient _firebaseClient;
         private const string pathToJsonFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
         public List<T> parsedObjectList { get; set; }
         private string parsedObjectName { get; set; }
+        private AutoResetEvent newInfoEvent = new AutoResetEvent(false);
 
         private IDisposable observable { get; set; }
-        private readonly List<IObserver> observers = new List<IObserver>();
-        private readonly object lockObject = new object();
-        private string state;
-
-        public void RegisterObserver(IObserver observer)
-        {
-            lock (lockObject)
-            {
-                observers.Add(observer);
-            }
-        }
-
-        public void RemoveObserver(IObserver observer)
-        {
-            lock (lockObject)
-            {
-                observers.Remove(observer);
-            }
-        }
-
-        public void NotifyObservers()
-        {
-            lock (lockObject)
-            {
-                foreach (var observer in observers)
-                {
-                    observer.Update(state);
-                }
-            }
-        }
 
         private Repository()
         {
@@ -58,16 +47,15 @@ namespace realtimeLogic
             parsedObjectName = typeof(T).Name.ToLower();
         }
 
-        public void Retrieve()
+        public async Task RetrieveAsync()
         {
-            var result = _firebaseClient.Child("markers").OnceAsync<T>();
+            var result = await _firebaseClient.Child(parsedObjectName).OnceAsync<T>();
             
-            foreach (var item in result.Result)
+            foreach (var item in result)
             {
+                parsedObjectList.Add(item.Object);
                 item.Object.uuid = item.Key;
             }
-
-            Console.WriteLine(result.Result.Count);
         }
 
         public void Subscribe()
@@ -77,11 +65,23 @@ namespace realtimeLogic
             Console.WriteLine("Subscribed to database");
         }
 
-        public void EndSubscription()
+        public void Unsubscribe()
         {
             // Ends the thread observing the database
             observable.Dispose();
             Console.WriteLine("Unsubscribed from database");
+        }
+
+        public List<T> WaitForNewData(CancellationToken cancellationToken)
+        {
+            // Wait for the new data or cancellation
+            WaitHandle.WaitAny(new WaitHandle[] { newInfoEvent, cancellationToken.WaitHandle });
+
+            // Check if cancellation is requested
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Console.WriteLine("New data received");
+            return parsedObjectList;
         }
 
         // This runs for every single change in the database
@@ -99,9 +99,6 @@ namespace realtimeLogic
                     T marker = eventSource.Object;
                     marker.uuid = eventSource.Key;
                     parsedObjectList.Add(marker);
-
-                    Console.WriteLine("New object added");
-                    Console.WriteLine(eventSource.Object.uuid);
                 }
             }
             else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
@@ -113,7 +110,9 @@ namespace realtimeLogic
                 }
             }
 
-            // TODO Somehow make this rerun the component?
+            // TODO Make this run only once after all the changes have been made
+            // Continues any thread currently waiting for new data via the "WaitForNewData" function
+            newInfoEvent.Set();
         }
 
         private async Task<string> GetAccessToken()

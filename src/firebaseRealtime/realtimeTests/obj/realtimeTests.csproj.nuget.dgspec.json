@@ -58,10 +58,6 @@
               "target": "Package",
               "version": "[2.0.3, )",
               "autoReferenced": true
-            },
-            "NUnit": {
-              "target": "Package",
-              "version": "[3.13.3, )"
             }
           },
           "imports": [

@@ -487,8 +487,7 @@
       "realtimeLogic/1.0.0": {
         "dependencies": {
           "FirebaseDatabase.net": "4.2.0",
-          "Google.Apis.Auth": "1.64.0",
-          "NUnit": "3.13.3"
+          "Google.Apis.Auth": "1.64.0"
         },
         "runtime": {
           "realtimeLogic.dll": {}

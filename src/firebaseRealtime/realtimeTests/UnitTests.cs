@@ -1,3 +1,4 @@
+using Microsoft.VisualBasic;
 using realtimeLogic;
 
 namespace realtimeTests
@@ -9,13 +10,15 @@ namespace realtimeTests
         [SetUp]
         public void Setup()
         {
-            _repository = Repository<Marker>.Instance;
+            _repository = Repository<Marker>.GetInstance;
         }
 
         [Test]
-        public void RetrieveFromDatabase()
+        public async Task RetrieveFromDatabaseAsync()
         {
-             _repository.Retrieve();
+            await _repository.RetrieveAsync();
+
+            Console.WriteLine(_repository.parsedObjectList.Count);
             
             Assert.Pass();
         }
@@ -27,7 +30,7 @@ namespace realtimeTests
             
             Thread.Sleep(1000);
 
-            _repository.EndSubscription();
+            _repository.Unsubscribe();
 
             Assert.Pass();
         }
@@ -39,11 +42,42 @@ namespace realtimeTests
             
             Thread.Sleep(1000);
 
-            _repository.Retrieve();
+            _ = _repository.RetrieveAsync();
 
             Thread.Sleep(1000);
 
-            _repository.EndSubscription();
+            _repository.Unsubscribe();
+
+            Assert.Pass();
+        }
+
+        [Test]
+        public void WaitForNewData()
+        {
+            _repository.Subscribe();
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            Thread.Sleep(1000);
+
+            // The first time this is called, it will return all the data in the database since it's all new to the program
+            List<Marker> markers = _repository.WaitForNewData(cancellationToken);
+
+            foreach (Marker marker in markers)
+            {
+                Console.WriteLine(marker.uuid);
+            }
+
+            // The second time this is called, it will return nothing since there's no new data until the database is updated
+            markers = _repository.WaitForNewData(cancellationToken);
+
+            foreach (Marker marker in markers)
+            {
+                Console.WriteLine(marker.uuid);
+            }
+
+            _repository.Unsubscribe();
 
             Assert.Pass();
         }

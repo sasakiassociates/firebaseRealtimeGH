@@ -6,11 +6,21 @@
     <Title>firebaseRealtime</Title>
     <Description>Description of firebaseRealtime</Description>
     <TargetExt>.gha</TargetExt>
+    <UserSecretsId>2471e294-4c5d-499d-9293-8d61b07b3810</UserSecretsId>
   </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="FirebaseDatabase.net" Version="4.2.0" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.64.0" />
     <PackageReference Include="Grasshopper" Version="7.13.21348.13001" IncludeAssets="compile;build" />
+    <PackageReference Include="LiteDB" Version="5.0.17" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="RhinoCommon" Version="7.13.21348.13001" />
+    <PackageReference Include="System.Reactive" Version="4.0.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\realtimeLogic\realtimeLogic.csproj" />
   </ItemGroup>
 
 </Project>
