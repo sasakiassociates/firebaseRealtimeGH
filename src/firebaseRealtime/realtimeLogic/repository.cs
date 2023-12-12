@@ -6,6 +6,7 @@ using Google.Apis.Auth.OAuth2;
 using NUnit.Framework;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Reactive;
 
 namespace realtimeLogic
 {
@@ -18,6 +19,38 @@ namespace realtimeLogic
         public List<T> parsedObjectList { get; set; }
         private string parsedObjectName { get; set; }
 
+        private IDisposable observable { get; set; }
+        private readonly List<IObserver> observers = new List<IObserver>();
+        private readonly object lockObject = new object();
+        private string state;
+
+        public void RegisterObserver(IObserver observer)
+        {
+            lock (lockObject)
+            {
+                observers.Add(observer);
+            }
+        }
+
+        public void RemoveObserver(IObserver observer)
+        {
+            lock (lockObject)
+            {
+                observers.Remove(observer);
+            }
+        }
+
+        public void NotifyObservers()
+        {
+            lock (lockObject)
+            {
+                foreach (var observer in observers)
+                {
+                    observer.Update(state);
+                }
+            }
+        }
+
         private Repository()
         {
             _firebaseClient = new FirebaseClient(FirebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(), AsAccessToken = true });
@@ -25,33 +58,33 @@ namespace realtimeLogic
             parsedObjectName = typeof(T).Name.ToLower();
         }
 
-        public void TestRetrieve()
+        public void Retrieve()
         {
-            var result = _firebaseClient.Child(parsedObjectName).
-                OnceAsync<T>();
+            var result = _firebaseClient.Child("markers").OnceAsync<T>();
             
             foreach (var item in result.Result)
             {
-                Console.WriteLine(item.Key);
-
+                item.Object.uuid = item.Key;
             }
+
+            Console.WriteLine(result.Result.Count);
         }
 
-        public void TestSubscribe()
+        public void Subscribe()
         {
             // Opens a new thread observing the database
-            var observable = _firebaseClient.Child(parsedObjectName).AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
-
-            for (int i = 0; i < 3; i++)
-            {
-                System.Threading.Thread.Sleep(5000);
-
-                Console.WriteLine(parsedObjectList.Count);
-            }
-            Console.WriteLine(parsedObjectList.Count);
-            observable.Dispose();
+            observable = _firebaseClient.Child(parsedObjectName).AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
+            Console.WriteLine("Subscribed to database");
         }
 
+        public void EndSubscription()
+        {
+            // Ends the thread observing the database
+            observable.Dispose();
+            Console.WriteLine("Unsubscribed from database");
+        }
+
+        // This runs for every single change in the database
         private void onNewData(Firebase.Database.Streaming.FirebaseEvent<T> eventSource)
         {
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
@@ -79,6 +112,8 @@ namespace realtimeLogic
                     parsedObjectList.RemoveAt(index);
                 }
             }
+
+            // TODO Somehow make this rerun the component?
         }
 
         private async Task<string> GetAccessToken()

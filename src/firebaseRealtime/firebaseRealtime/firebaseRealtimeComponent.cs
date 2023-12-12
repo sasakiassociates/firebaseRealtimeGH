@@ -6,10 +6,16 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+using realtimeLogic;
+
 namespace firebaseRealtime
 {
     public class firebaseRealtimeComponent : GH_Component
     {
+        private CancellationTokenSource cancellationTokenSource;
+        private CancellationToken cancellationToken;
+        private Repository<Marker> repository;
+
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
         /// constructor without any arguments.
@@ -22,6 +28,7 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
+            Repository<Marker> repository = Repository<Marker>.Instance;
         }
 
         /// <summary>
