@@ -45,6 +45,11 @@ namespace realtimeLogic
             _firebaseClient = new FirebaseClient(FirebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(), AsAccessToken = true });
             parsedObjectList = new List<T>();
             parsedObjectName = typeof(T).Name.ToLower();
+
+            if (_firebaseClient == null)
+            {
+                throw new Exception("Could not connect to Firebase");
+            }
         }
 
         public async Task<List<T>> RetrieveAsync()
