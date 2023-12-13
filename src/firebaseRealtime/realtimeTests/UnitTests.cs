@@ -81,5 +81,38 @@ namespace realtimeTests
 
             Assert.Pass();
         }
+
+        [Test]
+        public void CancelWaitForNewData()
+        {
+            _repository.Subscribe();
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            Thread.Sleep(1000);
+
+            // The first time this is called, it will return all the data in the database since it's all new to the program
+            List<Marker> markers = _repository.WaitForNewData(cancellationToken);
+
+            foreach (Marker marker in markers)
+            {
+                Console.WriteLine(marker.uuid);
+            }
+
+            // Start a new thread where the cancellation token will be cancelled after 5 seconds
+            Task.Run(() =>
+            {
+                Thread.Sleep(5000);
+                cancellationTokenSource.Cancel();
+            });
+
+            // This should stop after 5 seconds, otherwise the cancellation token didn't work
+            _repository.WaitForNewData(cancellationToken);
+
+            _repository.Unsubscribe();
+
+            Assert.Pass();
+        }
     }
 }

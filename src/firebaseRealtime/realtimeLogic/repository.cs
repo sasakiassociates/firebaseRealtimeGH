@@ -47,7 +47,7 @@ namespace realtimeLogic
             parsedObjectName = typeof(T).Name.ToLower();
         }
 
-        public async Task RetrieveAsync()
+        public async Task<List<T>> RetrieveAsync()
         {
             var result = await _firebaseClient.Child(parsedObjectName).OnceAsync<T>();
             
@@ -56,6 +56,8 @@ namespace realtimeLogic
                 parsedObjectList.Add(item.Object);
                 item.Object.uuid = item.Key;
             }
+
+            return parsedObjectList;
         }
 
         public void Subscribe()
@@ -77,8 +79,8 @@ namespace realtimeLogic
             // Wait for the new data or cancellation
             WaitHandle.WaitAny(new WaitHandle[] { newInfoEvent, cancellationToken.WaitHandle });
 
-            // Check if cancellation is requested
-            cancellationToken.ThrowIfCancellationRequested();
+            // Throw an exception if cancellation was requested
+            //cancellationToken.ThrowIfCancellationRequested();
 
             Console.WriteLine("New data received");
             return parsedObjectList;

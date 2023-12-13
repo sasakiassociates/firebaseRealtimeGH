@@ -20,6 +20,7 @@ namespace firebaseRealtime
         private CancellationToken cancellationToken;
         private Repository<Marker> repository;
         public List<Marker> incomingData = new List<Marker>();
+        private bool listening = false;
 
         public string keyDirectory = "";
         public string url = "";
@@ -37,6 +38,8 @@ namespace firebaseRealtime
             "Strategist", "Firebase")
         {
             repository = Repository<Marker>.GetInstance;
+            cancellationTokenSource = new CancellationTokenSource();
+            cancellationToken = cancellationTokenSource.Token;
         }
 
         /// <summary>
@@ -66,30 +69,35 @@ namespace firebaseRealtime
             DA.GetData("Key directory", ref keyDirectory);
             DA.GetData("Database URL", ref url);
 
-            if (cancellationTokenSource == null)
+            if (listening == false)
             {
-                cancellationTokenSource = new CancellationTokenSource();
-                cancellationToken = cancellationTokenSource.Token;
-                Task.Run(() => ListenThread(cancellationToken));
+                _ = Task.Run(() => ListenThread(cancellationToken));
+                listening = true;
             }
 
-            DA.SetDataList("Incoming Data", repository.parsedObjectList);
+            DA.SetDataList("Incoming Data", incomingData);
         }
 
         private async Task ListenThread(CancellationToken cancellationToken)
         {
             repository.Subscribe();
 
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                List<Marker> markers = repository.WaitForNewData(cancellationToken);
+            //while (!cancellationToken.IsCancellationRequested)
+            //{
+                //incomingData = await repository.WaitForNewData(cancellationToken));
+                List<Marker> markers = new List<Marker>();
+                markers = await repository.RetrieveAsync();
+
+                incomingData = markers;
+
+                Console.WriteLine("New data received");
 
                 // Rerun the component
                 Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
                 {
                     this.ExpireSolution(true);
                 });
-            }
+            //}
 
             repository.Unsubscribe();
         }
