@@ -6,11 +6,13 @@ namespace realtimeTests
     public class Tests
     {
         Repository<Marker> _repository;
+        string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
+        string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
 
         [SetUp]
         public void Setup()
         {
-            _repository = Repository<Marker>.GetInstance;
+            _repository = Repository<Marker>.GetInstance(pathToKeyFile, firebaseUrl);
         }
 
         [Test]
@@ -113,6 +115,23 @@ namespace realtimeTests
             _repository.Unsubscribe();
 
             Assert.Pass();
+        }
+
+        public void SubscribeForFiveSeconds()
+        {
+            _repository.Subscribe();
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            List<Marker> markers = new List<Marker>();
+
+            while (true)
+            {
+                markers = _repository.WaitForNewData(cancellationToken);
+            }
+
+            _repository.Unsubscribe();
         }
     }
 }

@@ -95,12 +95,14 @@ namespace realtimeLogic
                 {
                     var index = parsedObjectList.FindIndex(x => x.uuid == eventSource.Key);
                     parsedObjectList[index] = eventSource.Object;
+                    Console.WriteLine("Updated");
                 }
                 else
                 {
                     T marker = eventSource.Object;
                     marker.uuid = eventSource.Key;
                     parsedObjectList.Add(marker);
+                    Console.WriteLine("Added");
                 }
             }
             else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
@@ -109,6 +111,7 @@ namespace realtimeLogic
                 {
                     var index = parsedObjectList.FindIndex(x => x.uuid == eventSource.Key);
                     parsedObjectList.RemoveAt(index);
+                    Console.WriteLine("Removed");
                 }
             }
 

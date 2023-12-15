@@ -83,11 +83,11 @@ namespace firebaseRealtime
         {
             repository.Subscribe();
 
-            //while (!cancellationToken.IsCancellationRequested)
-            //{
-                //incomingData = await repository.WaitForNewData(cancellationToken));
+            while (!cancellationToken.IsCancellationRequested)
+            {
                 List<Marker> markers = new List<Marker>();
-                markers = await repository.RetrieveAsync();
+                markers = repository.WaitForNewData(cancellationToken);
+                //markers = await repository.RetrieveAsync();
 
                 incomingData = markers;
 
@@ -98,7 +98,9 @@ namespace firebaseRealtime
                 {
                     this.ExpireSolution(true);
                 });
-            //}
+
+                await Task.Delay(100);
+            }
 
             repository.Unsubscribe();
         }
