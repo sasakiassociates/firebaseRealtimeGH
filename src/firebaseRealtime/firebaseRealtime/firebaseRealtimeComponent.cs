@@ -37,9 +37,6 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
-            repository = Repository<Marker>.GetInstance;
-            cancellationTokenSource = new CancellationTokenSource();
-            cancellationToken = cancellationTokenSource.Token;
         }
 
         /// <summary>
@@ -71,6 +68,10 @@ namespace firebaseRealtime
 
             if (listening == false)
             {
+                repository = Repository<Marker>.GetInstance(keyDirectory, url);
+                cancellationTokenSource = new CancellationTokenSource();
+                cancellationToken = cancellationTokenSource.Token;
+
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
             }

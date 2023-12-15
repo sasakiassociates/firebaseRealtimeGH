@@ -14,35 +14,30 @@ namespace realtimeLogic
     {
         private static readonly object lockObject = new object();
         private static readonly Repository<T> instance;
-        public static Repository<T> GetInstance
+        public static Repository<T> GetInstance(string pathToKeyFile, string firebaseUrl)
         {
-            get
+            lock (lockObject)
             {
-                lock (lockObject)
+                if (instance == null)
                 {
-                    if (instance == null)
-                    {
-                        return new Repository<T>();
-                    }
-                    else
-                    {
-                        return instance;
-                    }
+                    return new Repository<T>(pathToKeyFile, firebaseUrl);
+                }
+                else
+                {
+                    return instance;
                 }
             }
         }
-        private const string FirebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         private readonly FirebaseClient _firebaseClient;
-        private const string pathToJsonFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
         public List<T> parsedObjectList { get; set; }
         private string parsedObjectName { get; set; }
         private AutoResetEvent newInfoEvent = new AutoResetEvent(false);
 
         private IDisposable observable { get; set; }
 
-        private Repository()
+        private Repository(string pathToKeyFile, string firebaseUrl)
         {
-            _firebaseClient = new FirebaseClient(FirebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(), AsAccessToken = true });
+            _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
             parsedObjectList = new List<T>();
             parsedObjectName = typeof(T).Name.ToLower();
 
@@ -122,9 +117,9 @@ namespace realtimeLogic
             newInfoEvent.Set();
         }
 
-        private async Task<string> GetAccessToken()
+        private async Task<string> GetAccessToken(string pathToKeyFile)
         {
-            var credential = GoogleCredential.FromFile(pathToJsonFile).CreateScoped(new string[] {
+            var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
                 "https://www.googleapis.com/auth/userinfo.email",
                 "https://www.googleapis.com/auth/firebase.database"
             });
