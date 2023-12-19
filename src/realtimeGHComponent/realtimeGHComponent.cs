@@ -21,6 +21,7 @@ namespace firebaseRealtime
         private Repository<Marker> repository;
         public List<Marker> incomingData = new List<Marker>();
         private bool listening = false;
+        public List<string> uuids = new List<string>();
 
         public string keyDirectory = "";
         public string url = "";
@@ -54,6 +55,7 @@ namespace firebaseRealtime
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Incoming Data", "Data", "Incoming Data", GH_ParamAccess.list);
+            pManager.AddTextParameter("UUIDs", "UUIDs", "UUIDs", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -77,6 +79,7 @@ namespace firebaseRealtime
             }
 
             DA.SetDataList("Incoming Data", incomingData);
+            DA.SetDataList("UUIDs", uuids);
         }
 
         private async Task ListenThread(CancellationToken cancellationToken)
@@ -85,11 +88,19 @@ namespace firebaseRealtime
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                List<Marker> markers = new List<Marker>();
-                markers = repository.WaitForNewData(cancellationToken);
-                //markers = await repository.RetrieveAsync();
+                List<Marker> tempMarkersList = new List<Marker>();
+                List<string> tempUuidList = new List<string>();
 
-                incomingData = markers;
+                tempMarkersList = repository.WaitForNewData(cancellationToken);
+                //markers = await repository.RetrieveAsync();
+                
+                foreach (Marker marker in tempMarkersList)
+                {
+                    tempUuidList.Add(marker.uuid);
+                }
+
+                uuids = tempUuidList;
+                incomingData = tempMarkersList;
 
                 Console.WriteLine("New data received");
 
@@ -99,7 +110,7 @@ namespace firebaseRealtime
                     this.ExpireSolution(true);
                 });
 
-                await Task.Delay(100);
+                //await Task.Delay(100);
             }
 
             repository.Unsubscribe();

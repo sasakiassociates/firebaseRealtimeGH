@@ -37,6 +37,7 @@ namespace realtimeLogic
 
         private Repository(string pathToKeyFile, string firebaseUrl)
         {
+            // Handshake with the Firebase database
             _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
             parsedObjectList = new List<T>();
             parsedObjectName = typeof(T).Name.ToLower();
@@ -74,6 +75,7 @@ namespace realtimeLogic
             Console.WriteLine("Unsubscribed from database");
         }
 
+        // Will launch for every object in the database changed or added
         public List<T> WaitForNewData(CancellationToken cancellationToken)
         {
             // Wait for the new data or cancellation
@@ -82,36 +84,65 @@ namespace realtimeLogic
             // Throw an exception if cancellation was requested
             //cancellationToken.ThrowIfCancellationRequested();
 
-            Console.WriteLine("New data received");
             return parsedObjectList;
         }
 
-        // This runs for every single change in the database
         private void onNewData(Firebase.Database.Streaming.FirebaseEvent<T> eventSource)
         {
-            if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
+            string uuid = eventSource.Key;
+
+            if ((uuid == null) || (uuid == ""))
             {
-                if (parsedObjectList.Exists(x => x.uuid == eventSource.Key))
+                return;
+            }
+
+            int index = -1;
+            foreach (T item in parsedObjectList)
+            {
+                if (item.uuid == uuid)
                 {
-                    var index = parsedObjectList.FindIndex(x => x.uuid == eventSource.Key);
-                    parsedObjectList[index] = eventSource.Object;
-                    Console.WriteLine("Updated");
+                    Console.WriteLine("Found " + uuid);
+                    index = parsedObjectList.IndexOf(item);
+                    break;
+                }
+            }
+            /*foreach (var item in parsedObjectList)
+            {
+                Console.WriteLine(item.uuid);
+            }*/
+            Console.WriteLine("----------------------------");
+            Console.WriteLine("Event type: " + eventSource.EventType);
+            Console.WriteLine("Key: " + eventSource.Key);
+            Console.WriteLine("Object: " + eventSource.Object);
+            Console.WriteLine("Index: " + index);
+            Console.WriteLine("----------------------------");
+
+            if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
+            {
+                if (index != -1)
+                {
+                    T marker = parsedObjectList[index];
+                    Console.WriteLine("Removing " + marker.uuid);
+                    parsedObjectList.RemoveAt(index);
+                }
+            }
+            else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
+            {
+                // TODO It is now adding and updating markers when they are detected and already exist...why?
+                // Seems to be some sort of race condition
+                if (index != -1)
+                {
+                    T marker = parsedObjectList[index];
+                    //Console.WriteLine("Updating " + marker.uuid);
+                    //parsedObjectList[index] = eventSource.Object;
+                    marker = eventSource.Object;
                 }
                 else
                 {
                     T marker = eventSource.Object;
                     marker.uuid = eventSource.Key;
+                    //Console.WriteLine("Added " + marker.uuid);
                     parsedObjectList.Add(marker);
-                    Console.WriteLine("Added");
-                }
-            }
-            else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
-            {
-                if (parsedObjectList.Exists(x => x.uuid == eventSource.Key))
-                {
-                    var index = parsedObjectList.FindIndex(x => x.uuid == eventSource.Key);
-                    parsedObjectList.RemoveAt(index);
-                    Console.WriteLine("Removed");
                 }
             }
 
