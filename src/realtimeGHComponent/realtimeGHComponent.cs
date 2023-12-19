@@ -92,7 +92,6 @@ namespace firebaseRealtime
                 List<string> tempUuidList = new List<string>();
 
                 tempMarkersList = repository.WaitForNewData(cancellationToken);
-                //markers = await repository.RetrieveAsync();
                 
                 foreach (Marker marker in tempMarkersList)
                 {

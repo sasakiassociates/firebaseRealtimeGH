@@ -101,22 +101,27 @@ namespace realtimeLogic
             {
                 if (item.uuid == uuid)
                 {
-                    Console.WriteLine("Found " + uuid);
+                    //Console.WriteLine("Found " + uuid);
                     index = parsedObjectList.IndexOf(item);
                     break;
                 }
             }
-            /*foreach (var item in parsedObjectList)
+
+            Console.WriteLine("----------------------------");
+            foreach (var item in parsedObjectList)
             {
                 Console.WriteLine(item.uuid);
-            }*/
+            }
             Console.WriteLine("----------------------------");
+
+            /*Console.WriteLine("----------------------------");
             Console.WriteLine("Event type: " + eventSource.EventType);
             Console.WriteLine("Key: " + eventSource.Key);
             Console.WriteLine("Object: " + eventSource.Object);
             Console.WriteLine("Index: " + index);
-            Console.WriteLine("----------------------------");
+            Console.WriteLine("----------------------------");*/
 
+            // TODO currently the rhino component isn't deleting the former 
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
             {
                 if (index != -1)
@@ -128,13 +133,10 @@ namespace realtimeLogic
             }
             else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
             {
-                // TODO It is now adding and updating markers when they are detected and already exist...why?
-                // Seems to be some sort of race condition
                 if (index != -1)
                 {
                     T marker = parsedObjectList[index];
                     //Console.WriteLine("Updating " + marker.uuid);
-                    //parsedObjectList[index] = eventSource.Object;
                     marker = eventSource.Object;
                 }
                 else
