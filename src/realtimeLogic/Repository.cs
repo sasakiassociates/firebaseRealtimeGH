@@ -50,7 +50,7 @@ namespace realtimeLogic
 
         public async Task<List<T>> RetrieveAsync()
         {
-            var result = await _firebaseClient.Child(parsedObjectName).OnceAsync<T>();
+            var result = await _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).OnceAsync<T>();
             
             foreach (var item in result)
             {
@@ -61,10 +61,12 @@ namespace realtimeLogic
             return parsedObjectList;
         }
 
+        // TODO change this to work with the new data structure
+        // Where does the project get assigned?
         public void Subscribe()
         {
             // Opens a new thread observing the database
-            observable = _firebaseClient.Child(parsedObjectName).AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
+            observable = _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
             Console.WriteLine("Subscribed to database");
         }
 

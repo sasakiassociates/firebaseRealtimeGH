@@ -21,6 +21,11 @@ namespace realtimeTests
             await _repository.RetrieveAsync();
 
             Console.WriteLine(_repository.parsedObjectList.Count);
+
+            foreach (Marker marker in _repository.parsedObjectList)
+            {
+                Console.WriteLine(marker.uuid);
+            }
             
             Assert.Pass();
         }
