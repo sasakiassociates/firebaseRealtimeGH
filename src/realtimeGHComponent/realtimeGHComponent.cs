@@ -108,7 +108,7 @@ namespace firebaseRealtime
                 {
                     this.ExpireSolution(true);
                 });
-
+                
                 //await Task.Delay(100);
             }
 
