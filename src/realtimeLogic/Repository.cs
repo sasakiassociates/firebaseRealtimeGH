@@ -42,10 +42,21 @@ namespace realtimeLogic
             parsedObjectList = new List<T>();
             parsedObjectName = typeof(T).Name.ToLower();
 
+            // Clear the database of markers
+            _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).DeleteAsync();
+
             if (_firebaseClient == null)
             {
                 throw new Exception("Could not connect to Firebase");
             }
+        }
+
+        // This will be used to post data that the detector can read...not sure what yet though
+        public async Task<T> PostAsync(T parsedObject)
+        {
+            var result = await _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).PostAsync<T>(parsedObject);
+            parsedObject.uuid = result.Key;
+            return parsedObject;
         }
 
         public async Task<List<T>> RetrieveAsync()
