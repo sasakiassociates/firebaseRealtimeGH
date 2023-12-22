@@ -14,6 +14,7 @@ namespace realtimeLogic
     {
         private static readonly object lockObject = new object();
         private static readonly Repository<T> instance;
+        private ChildQuery markerFolder;
         public static Repository<T> GetInstance(string pathToKeyFile, string firebaseUrl)
         {
             lock (lockObject)
@@ -42,26 +43,25 @@ namespace realtimeLogic
             parsedObjectList = new List<T>();
             parsedObjectName = typeof(T).Name.ToLower();
 
-            // Clear the database of markers
-            _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).DeleteAsync();
-
             if (_firebaseClient == null)
             {
                 throw new Exception("Could not connect to Firebase");
             }
+
+            markerFolder = _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName);
         }
 
         // This will be used to post data that the detector can read...not sure what yet though
         public async Task<T> PostAsync(T parsedObject)
         {
-            var result = await _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).PostAsync<T>(parsedObject);
+            var result = await markerFolder.PostAsync<T>(parsedObject);
             parsedObject.uuid = result.Key;
             return parsedObject;
         }
 
         public async Task<List<T>> RetrieveAsync()
         {
-            var result = await _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).OnceAsync<T>();
+            var result = await markerFolder.OnceAsync<T>();
             
             foreach (var item in result)
             {
@@ -76,8 +76,12 @@ namespace realtimeLogic
         // Where does the project get assigned?
         public void Subscribe()
         {
+            // Clear the markers if it hasn't already
+            // TODO this doesn't work in time for the subscribe function to 
+            markerFolder.DeleteAsync();
+            Thread.Sleep(200);
             // Opens a new thread observing the database
-            observable = _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName).AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
+            observable = markerFolder.AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
             Console.WriteLine("Subscribed to database");
         }
 

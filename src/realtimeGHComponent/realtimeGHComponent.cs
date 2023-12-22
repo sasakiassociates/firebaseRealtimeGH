@@ -88,6 +88,7 @@ namespace firebaseRealtime
 
             while (!cancellationToken.IsCancellationRequested)
             {
+                // Make a temp list so that we aren't iterating over a list and changing it at the same time
                 List<Marker> tempMarkersList = new List<Marker>();
                 List<string> tempUuidList = new List<string>();
 
