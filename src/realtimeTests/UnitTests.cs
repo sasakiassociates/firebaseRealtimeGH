@@ -81,7 +81,7 @@ namespace realtimeTests
             Assert.Pass();
         }*/
 
-        /*[Test]
+        [Test]
         public void SubscribeForTenSecondsThenCancel()
         {
             _repository.Subscribe();
@@ -102,13 +102,13 @@ namespace realtimeTests
             while (!cancellationToken.IsCancellationRequested)
             {
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
-                List<Marker> markers = _repository.WaitForNewData(cancellationToken);
+                string markers = _repository.WaitForNewData(cancellationToken);
             }
 
             _repository.Unsubscribe();
 
             Assert.Pass();
-        }*/
+        }
 
     }
 }

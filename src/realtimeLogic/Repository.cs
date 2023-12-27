@@ -33,6 +33,7 @@ namespace realtimeLogic
         private readonly FirebaseClient _firebaseClient;
         private AutoResetEvent newInfoEvent = new AutoResetEvent(false);
         public Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
+        public string incomingData;
         
         private IDisposable observable { get; set; }
 
@@ -77,6 +78,8 @@ namespace realtimeLogic
             // Clear the markers if it hasn't already
             // TODO this doesn't work in time for the subscribe function to 
             markerFolder.DeleteAsync();
+
+            // Wait for the database to clear
             Thread.Sleep(200);
             // Opens a new thread observing the database
             observable = markerFolder.AsObservable<JObject>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
@@ -98,18 +101,26 @@ namespace realtimeLogic
 
             // Throw an exception if cancellation was requested
             //cancellationToken.ThrowIfCancellationRequested();
-            string incomingData = DictionaryToString(dataDictionary);
 
             return incomingData;
         }
 
         private string DictionaryToString(Dictionary<string, string> dictionary)
         {
-            string output = "";
+            string output = "[\n";
             foreach (var key in dictionary.Keys)
             {
-                output += key + ": " + dictionary[key] + "\n";
+                output += $" \"{key}\": {dictionary[key]},\n";
             }
+
+            // Remove the trailing comma and newline, if any
+            if (output.EndsWith(",\n"))
+            {
+                output = output.Substring(0, output.Length - 2) + "\n";
+            }
+
+            output += "]";
+
             return output;
         }
 
@@ -123,11 +134,11 @@ namespace realtimeLogic
                 return;
             }
 
-            Console.WriteLine("----------------------------");
+            /*Console.WriteLine("----------------------------");
             foreach (var key in dataDictionary.Keys)
             {
                 Console.WriteLine(key + ": " + dataDictionary[key]);
-            }
+            }*/
 
             // TODO currently the rhino component isn't deleting the former 
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
@@ -148,6 +159,11 @@ namespace realtimeLogic
                     dataDictionary.Add(eventSource.Key, eventSource.Object.ToString());
                 }
             }
+
+            incomingData = DictionaryToString(dataDictionary);
+            //incomingData = "{" + incomingData + "}";
+
+            Console.WriteLine(incomingData);
 
             // TODO Make this run only once after all the changes have been made
             // Continues any thread currently waiting for new data via the "WaitForNewData" function
