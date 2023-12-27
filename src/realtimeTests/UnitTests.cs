@@ -5,17 +5,17 @@ namespace realtimeTests
 {
     public class Tests
     {
-        Repository<Marker> _repository;
+        Repository _repository;
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
 
         [SetUp]
         public void Setup()
         {
-            _repository = Repository<Marker>.GetInstance(pathToKeyFile, firebaseUrl);
+            _repository = Repository.GetInstance(pathToKeyFile, firebaseUrl);
         }
 
-        [Test]
+        /*[Test]
         public async Task RetrieveFromDatabaseAsync()
         {
             await _repository.RetrieveAsync();
@@ -28,7 +28,7 @@ namespace realtimeTests
             }
             
             Assert.Pass();
-        }
+        }*/
 
         [Test]
         public void SubscribeUnsubscribe()
@@ -42,7 +42,7 @@ namespace realtimeTests
             Assert.Pass();
         }
 
-        [Test]
+        /*[Test]
         public void SubscribeRetrieveUnsubscribe()
         {
             _repository.Subscribe();
@@ -56,9 +56,9 @@ namespace realtimeTests
             _repository.Unsubscribe();
 
             Assert.Pass();
-        }
+        }*/
 
-        [Test]
+        /*[Test]
         public void WaitForNewData()
         {
             _repository.Subscribe();
@@ -79,9 +79,9 @@ namespace realtimeTests
             _repository.Unsubscribe();
 
             Assert.Pass();
-        }
+        }*/
 
-        [Test]
+        /*[Test]
         public void SubscribeForTenSecondsThenCancel()
         {
             _repository.Subscribe();
@@ -108,7 +108,7 @@ namespace realtimeTests
             _repository.Unsubscribe();
 
             Assert.Pass();
-        }
+        }*/
 
     }
 }

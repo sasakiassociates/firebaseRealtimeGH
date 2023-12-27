@@ -18,10 +18,9 @@ namespace firebaseRealtime
     {
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
-        private Repository<Marker> repository;
-        public List<Marker> incomingData = new List<Marker>();
+        private Repository repository;
+        public string incomingData;
         private bool listening = false;
-        public List<string> uuids = new List<string>();
 
         public string keyDirectory = "";
         public string url = "";
@@ -54,8 +53,7 @@ namespace firebaseRealtime
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Incoming Data", "Data", "Incoming Data", GH_ParamAccess.list);
-            pManager.AddTextParameter("UUIDs", "UUIDs", "UUIDs", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Incoming Data", "Data", "Incoming Data", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -70,7 +68,7 @@ namespace firebaseRealtime
 
             if (listening == false)
             {
-                repository = Repository<Marker>.GetInstance(keyDirectory, url);
+                repository = Repository.GetInstance(keyDirectory, url);
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
 
@@ -78,8 +76,7 @@ namespace firebaseRealtime
                 listening = true;
             }
 
-            DA.SetDataList("Incoming Data", incomingData);
-            DA.SetDataList("UUIDs", uuids);
+            DA.SetData("Incoming Data", incomingData);
         }
 
         private async Task ListenThread(CancellationToken cancellationToken)
@@ -88,19 +85,7 @@ namespace firebaseRealtime
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                // Make a temp list so that we aren't iterating over a list and changing it at the same time
-                List<Marker> tempMarkersList = new List<Marker>();
-                List<string> tempUuidList = new List<string>();
-
-                tempMarkersList = repository.WaitForNewData(cancellationToken);
-                
-                foreach (Marker marker in tempMarkersList)
-                {
-                    tempUuidList.Add(marker.uuid);
-                }
-
-                uuids = tempUuidList;
-                incomingData = tempMarkersList;
+                incomingData = repository.WaitForNewData(cancellationToken);
 
                 Console.WriteLine("New data received");
 
@@ -109,8 +94,6 @@ namespace firebaseRealtime
                 {
                     this.ExpireSolution(true);
                 });
-                
-                //await Task.Delay(100);
             }
 
             repository.Unsubscribe();

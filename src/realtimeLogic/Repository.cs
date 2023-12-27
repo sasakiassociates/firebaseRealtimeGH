@@ -7,21 +7,22 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Reactive;
 using System.Threading;
+using Newtonsoft.Json.Linq;
 
 namespace realtimeLogic
 {
-    public class Repository<T> where T : parsedObject
+    public class Repository
     {
         private static readonly object lockObject = new object();
-        private static readonly Repository<T> instance;
+        private static readonly Repository instance;
         private ChildQuery markerFolder;
-        public static Repository<T> GetInstance(string pathToKeyFile, string firebaseUrl)
+        public static Repository GetInstance(string pathToKeyFile, string firebaseUrl)
         {
             lock (lockObject)
             {
                 if (instance == null)
                 {
-                    return new Repository<T>(pathToKeyFile, firebaseUrl);
+                    return new Repository(pathToKeyFile, firebaseUrl);
                 }
                 else
                 {
@@ -30,31 +31,28 @@ namespace realtimeLogic
             }
         }
         private readonly FirebaseClient _firebaseClient;
-        public List<T> parsedObjectList { get; set; }
-        private string parsedObjectName { get; set; }
         private AutoResetEvent newInfoEvent = new AutoResetEvent(false);
-
+        public Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
+        
         private IDisposable observable { get; set; }
 
         private Repository(string pathToKeyFile, string firebaseUrl)
         {
             // Handshake with the Firebase database
             _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
-            parsedObjectList = new List<T>();
-            parsedObjectName = typeof(T).Name.ToLower();
 
             if (_firebaseClient == null)
             {
                 throw new Exception("Could not connect to Firebase");
             }
 
-            markerFolder = _firebaseClient.Child("bases").Child("test_proj").Child(parsedObjectName);
+            markerFolder = _firebaseClient.Child("bases").Child("test_proj").Child("marker");
         }
 
         // This will be used to post data that the detector can read...not sure what yet though
-        public async Task<T> PostAsync(T parsedObject)
+        /*public async Task PostAsync(T parsedObject)
         {
-            var result = await markerFolder.PostAsync<T>(parsedObject);
+            var result = await markerFolder.PostAsync(parsedObject);
             parsedObject.uuid = result.Key;
             return parsedObject;
         }
@@ -70,7 +68,7 @@ namespace realtimeLogic
             }
 
             return parsedObjectList;
-        }
+        }*/
 
         // TODO change this to work with the new data structure
         // Where does the project get assigned?
@@ -81,7 +79,7 @@ namespace realtimeLogic
             markerFolder.DeleteAsync();
             Thread.Sleep(200);
             // Opens a new thread observing the database
-            observable = markerFolder.AsObservable<T>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
+            observable = markerFolder.AsObservable<JObject>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
             Console.WriteLine("Subscribed to database");
         }
 
@@ -93,18 +91,30 @@ namespace realtimeLogic
         }
 
         // Will launch for every object in the database changed or added
-        public List<T> WaitForNewData(CancellationToken cancellationToken)
+        public string WaitForNewData(CancellationToken cancellationToken)
         {
             // Wait for the new data or cancellation
             WaitHandle.WaitAny(new WaitHandle[] { newInfoEvent, cancellationToken.WaitHandle });
 
             // Throw an exception if cancellation was requested
             //cancellationToken.ThrowIfCancellationRequested();
+            string incomingData = DictionaryToString(dataDictionary);
 
-            return parsedObjectList;
+            return incomingData;
         }
 
-        private void onNewData(Firebase.Database.Streaming.FirebaseEvent<T> eventSource)
+        private string DictionaryToString(Dictionary<string, string> dictionary)
+        {
+            string output = "";
+            foreach (var key in dictionary.Keys)
+            {
+                output += key + ": " + dictionary[key] + "\n";
+            }
+            return output;
+        }
+
+        //  We want to parse this data back into a string to output so we can use it however we want in later components
+        private void onNewData(Firebase.Database.Streaming.FirebaseEvent<JObject> eventSource)
         {
             string uuid = eventSource.Key;
 
@@ -113,55 +123,29 @@ namespace realtimeLogic
                 return;
             }
 
-            int index = -1;
-            foreach (T item in parsedObjectList)
-            {
-                if (item.uuid == uuid)
-                {
-                    //Console.WriteLine("Found " + uuid);
-                    index = parsedObjectList.IndexOf(item);
-                    break;
-                }
-            }
-
             Console.WriteLine("----------------------------");
-            foreach (var item in parsedObjectList)
+            foreach (var key in dataDictionary.Keys)
             {
-                Console.WriteLine(item.uuid);
+                Console.WriteLine(key + ": " + dataDictionary[key]);
             }
-            Console.WriteLine("----------------------------");
-
-            /*Console.WriteLine("----------------------------");
-            Console.WriteLine("Event type: " + eventSource.EventType);
-            Console.WriteLine("Key: " + eventSource.Key);
-            Console.WriteLine("Object: " + eventSource.Object);
-            Console.WriteLine("Index: " + index);
-            Console.WriteLine("----------------------------");*/
 
             // TODO currently the rhino component isn't deleting the former 
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
             {
-                if (index != -1)
+                if (dataDictionary.ContainsKey(eventSource.Key))
                 {
-                    T marker = parsedObjectList[index];
-                    Console.WriteLine("Removing " + marker.uuid);
-                    parsedObjectList.RemoveAt(index);
+                    dataDictionary.Remove(eventSource.Key);
                 }
             }
             else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
             {
-                if (index != -1)
+                if (dataDictionary.ContainsKey(eventSource.Key))
                 {
-                    T marker = parsedObjectList[index];
-                    //Console.WriteLine("Updating " + marker.uuid);
-                    marker = eventSource.Object;
+                    dataDictionary[eventSource.Key] = eventSource.Object.ToString();
                 }
                 else
                 {
-                    T marker = eventSource.Object;
-                    marker.uuid = eventSource.Key;
-                    //Console.WriteLine("Added " + marker.uuid);
-                    parsedObjectList.Add(marker);
+                    dataDictionary.Add(eventSource.Key, eventSource.Object.ToString());
                 }
             }
 
