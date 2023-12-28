@@ -107,7 +107,7 @@ namespace realtimeLogic
 
         private string DictionaryToString(Dictionary<string, string> dictionary)
         {
-            string output = "[\n";
+            string output = "{\n";
             foreach (var key in dictionary.Keys)
             {
                 output += $" \"{key}\": {dictionary[key]},\n";
@@ -118,8 +118,7 @@ namespace realtimeLogic
             {
                 output = output.Substring(0, output.Length - 2) + "\n";
             }
-
-            output += "]";
+            output += "}";
 
             return output;
         }
@@ -161,7 +160,6 @@ namespace realtimeLogic
             }
 
             incomingData = DictionaryToString(dataDictionary);
-            //incomingData = "{" + incomingData + "}";
 
             Console.WriteLine(incomingData);
 
