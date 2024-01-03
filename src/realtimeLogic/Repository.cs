@@ -22,7 +22,7 @@ namespace realtimeLogic
         // This object will hold info about the program that is currently subscibed
         // TODO add subsciber info to this object
         string listenerPlaceholder = "{ \"listener\": {\"status\": \"listening\"}}";
-
+        
         public static Repository GetInstance(string pathToKeyFile, string firebaseUrl)
         {
             lock (lockObject)
@@ -75,19 +75,6 @@ namespace realtimeLogic
             await markerFolder.Child(uuid).DeleteAsync();
         }
 
-        /*public async Task<List<T>> RetrieveAsync()
-        {
-            var result = await markerFolder.OnceAsync<T>();
-
-            foreach (var item in result)
-            {
-                parsedObjectList.Add(item.Object);
-                item.Object.uuid = item.Key;
-            }
-
-            return parsedObjectList;
-        }
-*/
         // TODO change this to work with the new data structure
         // Where does the project get assigned?
         public async Task SubscribeAsync()
