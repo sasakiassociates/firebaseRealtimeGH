@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Reactive;
 using System.Threading;
 using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 
 namespace realtimeLogic
 {
@@ -16,6 +17,12 @@ namespace realtimeLogic
         private static readonly object lockObject = new object();
         private static readonly Repository instance;
         private ChildQuery markerFolder;
+
+        // Firebase subscribe only works if there is at least one object in the specified folder
+        // This object will hold info about the program that is currently subscibed
+        // TODO add subsciber info to this object
+        string listenerPlaceholder = "{ \"listener\": {\"status\": \"listening\"}}";
+
         public static Repository GetInstance(string pathToKeyFile, string firebaseUrl)
         {
             lock (lockObject)
@@ -35,7 +42,7 @@ namespace realtimeLogic
         public Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
         public string incomingData;
         
-        private IDisposable observable { get; set; }
+        public IDisposable observable { get; set; }
 
         private Repository(string pathToKeyFile, string firebaseUrl)
         {
@@ -51,17 +58,27 @@ namespace realtimeLogic
         }
 
         // This will be used to post data that the detector can read...not sure what yet though
-        /*public async Task PostAsync(T parsedObject)
+        // Post Async puts the message under a unique identifier key
+        public async Task PostAsync(string message)
         {
-            var result = await markerFolder.PostAsync(parsedObject);
-            parsedObject.uuid = result.Key;
-            return parsedObject;
+            var post = await markerFolder.PostAsync(message);
+            Console.WriteLine(post.Key);
         }
 
-        public async Task<List<T>> RetrieveAsync()
+        public async Task PutAsync(string message)
+        {
+            await markerFolder.PutAsync(message);
+        }
+
+        public async Task DeleteAsync(string uuid)
+        {
+            await markerFolder.Child(uuid).DeleteAsync();
+        }
+
+        /*public async Task<List<T>> RetrieveAsync()
         {
             var result = await markerFolder.OnceAsync<T>();
-            
+
             foreach (var item in result)
             {
                 parsedObjectList.Add(item.Object);
@@ -69,33 +86,43 @@ namespace realtimeLogic
             }
 
             return parsedObjectList;
-        }*/
-
+        }
+*/
         // TODO change this to work with the new data structure
         // Where does the project get assigned?
-        public void Subscribe()
+        public async Task SubscribeAsync()
         {
             // Clear the markers if it hasn't already
             // TODO this doesn't work in time for the subscribe function to 
-            markerFolder.DeleteAsync();
+            //await markerFolder.DeleteAsync();
+            await markerFolder.PutAsync(listenerPlaceholder);
 
-            // Wait for the database to clear
-            Thread.Sleep(200);
+            //await PutAsync("{\"listening\": true}");
             // Opens a new thread observing the database
-            observable = markerFolder.AsObservable<JObject>().Subscribe(dbEventHandler => onNewData(dbEventHandler));
+            observable = markerFolder.AsObservable<JObject>().Subscribe(dbEventHandler => onNewData(dbEventHandler), ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine("Subscribed to database");
         }
 
-        public void Unsubscribe()
+        public async Task UnsubscribeAsync()
         {
-            // Ends the thread observing the database
-            observable.Dispose();
-            Console.WriteLine("Unsubscribed from database");
+            if (observable != null)
+            {
+                //await PutAsync("{\"listening\":false}");
+                observable.Dispose();
+                observable = null; // Set observable to null to indicate that it's disposed.
+                Console.WriteLine("Unsubscribed from database");
+                await markerFolder.Child("listener").DeleteAsync();
+            }
+            else
+            {
+                Console.WriteLine("Already unsubscribed");
+            }
         }
 
         // Will launch for every object in the database changed or added
         public string WaitForNewData(CancellationToken cancellationToken)
         {
+
             // Wait for the new data or cancellation
             WaitHandle.WaitAny(new WaitHandle[] { newInfoEvent, cancellationToken.WaitHandle });
 
@@ -126,12 +153,12 @@ namespace realtimeLogic
         //  We want to parse this data back into a string to output so we can use it however we want in later components
         private void onNewData(Firebase.Database.Streaming.FirebaseEvent<JObject> eventSource)
         {
-            string uuid = eventSource.Key;
+            //Console.WriteLine("New data: " + eventSource.EventType + " " + eventSource.Key + " " + eventSource.Object.ToString());
 
-            if ((uuid == null) || (uuid == ""))
+            /*if ((uuid == null) || (uuid == ""))
             {
                 return;
-            }
+            }*/
 
             /*Console.WriteLine("----------------------------");
             foreach (var key in dataDictionary.Keys)
@@ -139,15 +166,16 @@ namespace realtimeLogic
                 Console.WriteLine(key + ": " + dataDictionary[key]);
             }*/
 
-            // TODO currently the rhino component isn't deleting the former 
+            // TODO whenever a marker is deleted, the observer stops working
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
             {
                 if (dataDictionary.ContainsKey(eventSource.Key))
                 {
+                    Console.WriteLine("Deleting " + eventSource.Key);
                     dataDictionary.Remove(eventSource.Key);
                 }
             }
-            else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
+            if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
             {
                 if (dataDictionary.ContainsKey(eventSource.Key))
                 {
@@ -161,11 +189,10 @@ namespace realtimeLogic
 
             incomingData = DictionaryToString(dataDictionary);
 
-            Console.WriteLine(incomingData);
+            /*Console.WriteLine(incomingData);*//*
 
-            // TODO Make this run only once after all the changes have been made
             // Continues any thread currently waiting for new data via the "WaitForNewData" function
-            newInfoEvent.Set();
+            newInfoEvent.Set();*/
         }
 
         private async Task<string> GetAccessToken(string pathToKeyFile)

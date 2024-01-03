@@ -81,7 +81,7 @@ namespace firebaseRealtime
 
         private async Task ListenThread(CancellationToken cancellationToken)
         {
-            repository.Subscribe();
+            await repository.SubscribeAsync();
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -96,7 +96,7 @@ namespace firebaseRealtime
                 });
             }
 
-            repository.Unsubscribe();
+            await repository.UnsubscribeAsync();
         }
 
         /// <summary>

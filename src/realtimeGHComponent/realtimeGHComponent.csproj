@@ -7,6 +7,14 @@
     <Description>Description of firebaseRealtime</Description>
     <TargetExt>.gha</TargetExt>
     <UserSecretsId>2471e294-4c5d-499d-9293-8d61b07b3810</UserSecretsId>
+
+	  <StartProgram>C:\Program Files\Rhino 7\System\Rhino.exe</StartProgram>
+	  <StartArguments>/nosplash /runscript="_-Runscript (
+		  Set GH = Rhino.GetPlugInObject(""Grasshopper"")
+		  Call GH.OpenDocument(""C:\Users\nshikada\Desktop\firebaseTest.gh""")
+		  )"
+	  </StartArguments>
+	  <StartAction>Program</StartAction>
   </PropertyGroup>
   
   <ItemGroup>
@@ -21,6 +29,21 @@
   
   <ItemGroup>
     <ProjectReference Include="..\realtimeLogic\realtimeLogic.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
 
 </Project>

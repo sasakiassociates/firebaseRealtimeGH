@@ -20,3 +20,4 @@ C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\bi
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\realtimeGHComponent.csproj.CopyComplete
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\realtimeGHComponent.gha
 C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\realtimeGHComponent.pdb
+C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\bin\Debug\net48\realtimeGHComponent.gha.config
