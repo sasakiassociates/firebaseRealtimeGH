@@ -159,6 +159,10 @@ namespace realtimeLogic
             {
                 return;
             }*/
+            if (eventSource.Key == "listener")
+            {
+                return;
+            }
 
             /*Console.WriteLine("----------------------------");
             foreach (var key in dataDictionary.Keys)
@@ -167,14 +171,6 @@ namespace realtimeLogic
             }*/
 
             // TODO whenever a marker is deleted, the observer stops working
-            if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
-            {
-                if (dataDictionary.ContainsKey(eventSource.Key))
-                {
-                    Console.WriteLine("Deleting " + eventSource.Key);
-                    dataDictionary.Remove(eventSource.Key);
-                }
-            }
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
             {
                 if (dataDictionary.ContainsKey(eventSource.Key))
@@ -186,13 +182,21 @@ namespace realtimeLogic
                     dataDictionary.Add(eventSource.Key, eventSource.Object.ToString());
                 }
             }
+            else if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
+            {
+                if (dataDictionary.ContainsKey(eventSource.Key))
+                {
+                    Console.WriteLine("Deleting " + eventSource.Key);
+                    dataDictionary.Remove(eventSource.Key);
+                }
+            }
 
             incomingData = DictionaryToString(dataDictionary);
 
-            /*Console.WriteLine(incomingData);*//*
+            /*Console.WriteLine(incomingData);*/
 
             // Continues any thread currently waiting for new data via the "WaitForNewData" function
-            newInfoEvent.Set();*/
+            newInfoEvent.Set();
         }
 
         private async Task<string> GetAccessToken(string pathToKeyFile)
