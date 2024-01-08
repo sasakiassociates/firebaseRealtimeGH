@@ -18,6 +18,9 @@ namespace realtimeLogic
         private static readonly Repository instance;
         private ChildQuery markerFolder;
 
+        private DateTime lastUpdate = DateTime.Now;
+        private double updateInterval = 2;
+
         // Firebase subscribe only works if there is at least one object in the specified folder
         // This object will hold info about the program that is currently subscibed
         // TODO add subsciber info to this object
@@ -75,30 +78,11 @@ namespace realtimeLogic
             await markerFolder.Child(uuid).DeleteAsync();
         }
 
-        /*public async Task<List<T>> RetrieveAsync()
-        {
-            var result = await markerFolder.OnceAsync<T>();
-
-            foreach (var item in result)
-            {
-                parsedObjectList.Add(item.Object);
-                item.Object.uuid = item.Key;
-            }
-
-            return parsedObjectList;
-        }
-*/
-        // TODO change this to work with the new data structure
-        // Where does the project get assigned?
+        // Where does project get assigned?
         public async Task SubscribeAsync()
         {
-            // Clear the markers if it hasn't already
-            // TODO this doesn't work in time for the subscribe function to 
-            //await markerFolder.DeleteAsync();
             await markerFolder.PutAsync(listenerPlaceholder);
 
-            //await PutAsync("{\"listening\": true}");
-            // Opens a new thread observing the database
             observable = markerFolder.AsObservable<JObject>().Subscribe(dbEventHandler => onNewData(dbEventHandler), ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine("Subscribed to database");
         }
@@ -107,7 +91,6 @@ namespace realtimeLogic
         {
             if (observable != null)
             {
-                //await PutAsync("{\"listening\":false}");
                 observable.Dispose();
                 observable = null; // Set observable to null to indicate that it's disposed.
                 Console.WriteLine("Unsubscribed from database");
@@ -119,16 +102,10 @@ namespace realtimeLogic
             }
         }
 
-        // Will launch for every object in the database changed or added
+        // Currently runs for every change in the database, need to batch
         public string WaitForNewData(CancellationToken cancellationToken)
         {
-
-            // Wait for the new data or cancellation
             WaitHandle.WaitAny(new WaitHandle[] { newInfoEvent, cancellationToken.WaitHandle });
-
-            // Throw an exception if cancellation was requested
-            //cancellationToken.ThrowIfCancellationRequested();
-
             return incomingData;
         }
 
@@ -153,32 +130,20 @@ namespace realtimeLogic
         //  We want to parse this data back into a string to output so we can use it however we want in later components
         private void onNewData(Firebase.Database.Streaming.FirebaseEvent<JObject> eventSource)
         {
-            //Console.WriteLine("New data: " + eventSource.EventType + " " + eventSource.Key + " " + eventSource.Object.ToString());
-
-            /*if ((uuid == null) || (uuid == ""))
-            {
-                return;
-            }*/
             if (eventSource.Key == "listener")
             {
                 return;
             }
-
-            /*Console.WriteLine("----------------------------");
-            foreach (var key in dataDictionary.Keys)
-            {
-                Console.WriteLine(key + ": " + dataDictionary[key]);
-            }*/
-
-            // TODO whenever a marker is deleted, the observer stops working
             if (eventSource.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
             {
                 if (dataDictionary.ContainsKey(eventSource.Key))
                 {
+                    //Console.WriteLine("Updating " + eventSource.Key);
                     dataDictionary[eventSource.Key] = eventSource.Object.ToString();
                 }
                 else
                 {
+                    //Console.WriteLine("Adding " + eventSource.Key);
                     dataDictionary.Add(eventSource.Key, eventSource.Object.ToString());
                 }
             }
@@ -186,17 +151,23 @@ namespace realtimeLogic
             {
                 if (dataDictionary.ContainsKey(eventSource.Key))
                 {
-                    Console.WriteLine("Deleting " + eventSource.Key);
+                    //Console.WriteLine("Deleting " + eventSource.Key);
                     dataDictionary.Remove(eventSource.Key);
                 }
             }
 
             incomingData = DictionaryToString(dataDictionary);
+            Console.WriteLine(incomingData);
 
-            /*Console.WriteLine(incomingData);*/
-
-            // Continues any thread currently waiting for new data via the "WaitForNewData" function
-            newInfoEvent.Set();
+            // this debouncing should probably be done sooner, but it's here for now so that we can ensure we get all updates
+            // TODO if the last update wasn't perfectly timed then it won't update. Need to move this check somewhere else
+            if (DateTime.Now.Subtract(lastUpdate).TotalSeconds > updateInterval)
+            {
+                Console.WriteLine(DateTime.Now.Subtract(lastUpdate).TotalSeconds);
+                // Continues any thread currently waiting for new data via the "WaitForNewData" function
+                newInfoEvent.Set();
+                lastUpdate = DateTime.Now;
+            }
         }
 
         private async Task<string> GetAccessToken(string pathToKeyFile)

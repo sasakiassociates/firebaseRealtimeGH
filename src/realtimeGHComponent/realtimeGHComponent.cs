@@ -11,19 +11,13 @@ using Firebase.Database;
 using Firebase.Database.Query;
 using Google.Apis.Auth.OAuth2;
 using Newtonsoft.Json;
+using GrasshopperAsyncComponent;
 
 namespace firebaseRealtime
 {
-    public class realtimeGHComponent : GH_Component
+    public class realtimeGHComponent : GH_AsyncComponent
     {
-        private CancellationTokenSource cancellationTokenSource;
-        private CancellationToken cancellationToken;
-        private Repository repository;
-        public string incomingData;
-        private bool listening = false;
-
-        public string keyDirectory = "";
-        public string url = "";
+        
 
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -54,6 +48,52 @@ namespace firebaseRealtime
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Incoming Data", "Data", "Incoming Data", GH_ParamAccess.item);
+        }
+
+        private class RealtimeWorker : WorkerInstance
+        {
+            private CancellationTokenSource cancellationTokenSource;
+            private CancellationToken cancellationToken;
+            private Repository repository;
+            public string incomingData;
+            private bool listening = false;
+
+            public string keyDirectory = "";
+            public string url = "";
+
+            public RealtimeWorker(GH_Component parent) : base(parent) { }
+
+            public override WorkerInstance Duplicate() => new RealtimeWorker(Parent);
+
+            public override void DoWork(Action<string, double> ReportProgress, Action Done)
+            {
+                repository.SubscribeAsync().Wait();
+
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    incomingData = repository.WaitForNewData(cancellationToken);
+
+                    Console.WriteLine("New data received");
+
+                    // Rerun the component
+                    Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+                    {
+                        component.ExpireSolution(true);
+                    });
+                }
+
+                repository.UnsubscribeAsync().Wait();
+            }
+
+            public override void SetData(IGH_DataAccess DA)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override void GetData(IGH_DataAccess DA, GH_ComponentParamServer Params)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         /// <summary>

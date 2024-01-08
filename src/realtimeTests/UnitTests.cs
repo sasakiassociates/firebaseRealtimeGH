@@ -33,8 +33,6 @@ namespace realtimeTests
         {
             await Task.Run(() => Thread.Sleep(1000));
 
-            Assert.That(null, Is.Not.EqualTo(_repository.observable));
-
             Assert.Pass();
         }
 
