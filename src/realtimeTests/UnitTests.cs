@@ -6,7 +6,7 @@ namespace realtimeTests
 {
     public class Tests
     {
-        Repository _repository;
+        OldRepository _repository;
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
 
@@ -18,7 +18,7 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            _repository = Repository.GetInstance(pathToKeyFile, firebaseUrl);
+            _repository = OldRepository.GetInstance(pathToKeyFile, firebaseUrl);
             await _repository.SubscribeAsync();
         }
 
@@ -48,7 +48,7 @@ namespace realtimeTests
             // Start a new thread where the cancellation token will be cancelled after 5 seconds
             await Task.Run(() =>
             {
-                Thread.Sleep(10000);
+                Thread.Sleep(5000);
                 cancellationTokenSource.Cancel();
             });
 
@@ -56,6 +56,7 @@ namespace realtimeTests
             {
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
                 string markers = _repository.WaitForNewData(cancellationToken);
+                Console.WriteLine("succeeded");
             }
 
             Assert.Pass();
@@ -66,9 +67,25 @@ namespace realtimeTests
         {
             string testJson = "{\"listening\": true, \"Test\": \"Yes\"}";
 
-            await _repository.PostAsync(testJson);
+            await _repository.PostAsync("marker", testJson);
             Console.WriteLine("Posted");
 
+            Assert.Pass();
+        }
+
+        [Test]
+        public async Task DeleteAsync()
+        {
+            string target = "update_interval";
+            await _repository.DeleteAsync(target, "config");
+            Assert.Pass();
+        }
+
+        [Test]
+        public async Task PutConfigData()
+        {
+            string intervalJson = "{\"update_interval\": 1000}";
+            await _repository.PutAsync(intervalJson, "config");
             Assert.Pass();
         }
 
