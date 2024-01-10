@@ -22,7 +22,7 @@ namespace realtimeLogic
         private ChildQuery markerFolder;
         private ChildQuery configFolder;
 
-        private readonly FirebaseClient _firebaseClient;
+        private readonly Firebase.Database.FirebaseClient _firebaseClient;
         private AutoResetEvent newInfoEvent = new AutoResetEvent(false);
         public Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
         public string incomingData;
@@ -64,7 +64,7 @@ namespace realtimeLogic
         private OldRepository(string pathToKeyFile, string firebaseUrl)
         {
             // Handshake with the Firebase database
-            _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
+            _firebaseClient = new Firebase.Database.FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
 
             if (_firebaseClient == null)
             {
@@ -180,9 +180,6 @@ namespace realtimeLogic
 
             //incomingData = DictionaryToString(dataDictionary);
             incomingData = DictionaryToString(batchDictionary);
-
-            // If the update interval has passed, process the queue of updates
-            newInfoEvent.Reset();
 
             return incomingData;
         }
