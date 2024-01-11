@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace realtimeLogic
 {
@@ -15,32 +16,41 @@ namespace realtimeLogic
     public class DatabaseObserver
     {
         public EventHandlingStrategy strategy;
-        public string target;
+        ChildQuery observingFolder;
+        FirebaseObject<string> listenerKey;
         public string project;
         IDisposable subscription;
-        FirebaseObject<string> listenerKey;
-        string listenerPlaceholder = "\"listening\": true";
+        string folder;
+        string listenerPlaceholder = "{ \"listener\": {\"status\": \"listening\"}}";
 
-        public DatabaseObserver(string targetFolder, string projectName) 
+        public DatabaseObserver(FirebaseClient firebaseClient, string targetFolder, string projectName) 
         { 
-            target = targetFolder;
             project = projectName;
             strategy = EventHandlerFactory.createStrategy(targetFolder);
+            observingFolder = firebaseClient.Child("bases").Child(project).Child(targetFolder);
+            folder = targetFolder;
         }
 
-        public async void Subscribe(FirebaseClient firebaseClient, AutoResetEvent updateEvent)
+        public async Task Subscribe(AutoResetEvent updateEvent)
         {
-            Console.WriteLine("Subscribed");
-            
-            ChildQuery query = firebaseClient.Child("bases").Child(project).Child(target);
-            listenerKey = await query.PostAsync(listenerPlaceholder);
-            subscription = firebaseClient.Child(target).AsObservable<JObject>().Subscribe(d => strategy.Execute(d, updateEvent));
+            listenerKey = await observingFolder.PostAsync(listenerPlaceholder);
+            subscription = observingFolder.AsObservable<JObject>().Subscribe(d => strategy.Parse(d, updateEvent), ex => Console.WriteLine($"Observer error: {ex.Message}"));
+            Console.WriteLine($"Subscribed to \"bases/{project}/{folder}\"");
         }
 
-        public void Unsubscribe()
+        public async Task Unsubscribe()
         {
-            Console.WriteLine("Unsubscribed");
-            subscription.Dispose();
+            if (subscription != null)
+            {
+                subscription.Dispose();
+                await observingFolder.Child(listenerKey.Key).DeleteAsync();
+                Console.WriteLine($"Unsubscribed from \"bases\"/{project}/{folder}\"");
+            }
+            else
+            {
+                Console.WriteLine("No subscription to unsubscribe from");
+                return;
+            }
         }
     }
 }

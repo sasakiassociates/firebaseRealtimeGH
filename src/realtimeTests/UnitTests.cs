@@ -9,6 +9,7 @@ namespace realtimeTests
         OldRepository _repository;
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
+        Repository newRepo;
 
         string testMarkerString = "{ \"listener\": {\"status\": \"listening\"}}";
         string testMarkerChangeString = "{ \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -700, \"y\": -500, \"rotation\": 0}}";
@@ -18,20 +19,21 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            _repository = OldRepository.GetInstance(pathToKeyFile, firebaseUrl);
-            await _repository.SubscribeAsync();
+            newRepo = Repository.GetInstance(pathToKeyFile, firebaseUrl, "test_proj");
+            List<string> foldersToWatch = new List<string> { "marker", "config" };
+            await newRepo.Setup(foldersToWatch);
         }
 
         [TearDown]
         public async Task TearDown()
         {
-            await _repository.UnsubscribeAsync();
+            await newRepo.Teardown();
         }
 
         [Test]
         public async Task SubscribeUnsubscribe()
         {
-            await Task.Run(() => Thread.Sleep(1000));
+            await Task.Run(() => Thread.Sleep(100));
 
             Assert.Pass();
         }
@@ -42,21 +44,17 @@ namespace realtimeTests
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             CancellationToken cancellationToken = cancellationTokenSource.Token;
 
-            // The first time this is called, it will return all the data in the database since it's all new to the program
-            //List<Marker> markers = _repository.WaitForNewData(cancellationToken);
-
             // Start a new thread where the cancellation token will be cancelled after 5 seconds
-            await Task.Run(() =>
+            _ = Task.Run(() =>
             {
-                Thread.Sleep(5000);
+                Thread.Sleep(2000);
                 cancellationTokenSource.Cancel();
             });
 
             while (!cancellationToken.IsCancellationRequested)
             {
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
-                string markers = _repository.WaitForNewData(cancellationToken);
-                Console.WriteLine("succeeded");
+                string markers = newRepo.WaitForUpdate(cancellationToken);
             }
 
             Assert.Pass();
@@ -124,6 +122,5 @@ namespace realtimeTests
 
             Assert.Pass();
         }
-
     }
 }

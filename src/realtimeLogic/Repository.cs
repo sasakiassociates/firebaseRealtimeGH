@@ -4,25 +4,27 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Firebase.Database;
+using Firebase.Database.Query;
 using Firebase.Database.Streaming;
 using Google.Apis.Auth.OAuth2;
 
 namespace realtimeLogic
 {
-    internal class Repository
+    public class Repository
     {
-        internal readonly Firebase.Database.FirebaseClient firebaseClient;
+        internal readonly FirebaseClient firebaseClient;
         private static Repository instance;
         private List<DatabaseObserver> databaseObservers = new List<DatabaseObserver>();
         public AutoResetEvent updateEvent = new AutoResetEvent(false);
-        string project = "test";
+        string project;
 
-        private Repository(string pathToKeyFile, string firebaseUrl)
+        private Repository(string pathToKeyFile, string firebaseUrl, string projectName)
         {
-            firebaseClient = new Firebase.Database.FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
+            firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
+            project = projectName;
         }
 
-        public static Repository GetInstance(string pathToKeyFile, string firebaseUrl)
+        public static Repository GetInstance(string pathToKeyFile, string firebaseUrl, string projectName)
         {
             if (instance == null)
             {
@@ -30,27 +32,46 @@ namespace realtimeLogic
                 {
                     if (instance == null)
                     {
-                        instance = new Repository(pathToKeyFile, firebaseUrl);
+                        instance = new Repository(pathToKeyFile, firebaseUrl, projectName);
                     }
                 }
             }
             return instance;
         }
 
-        public void Setup()
+        public async Task Setup(List<string> foldersToObserve)
         {
-            // Create observers
-            // TODO : Make this dynamic (Factory)
-            databaseObservers.Add(new DatabaseObserver("markers", project));
-            databaseObservers.Add(new DatabaseObserver("config", project));
-
-            // Subscribe to all folders
-            foreach (DatabaseObserver observer in databaseObservers)
+            foreach (string folder in foldersToObserve)
             {
-                observer.Subscribe(firebaseClient, updateEvent);
+                DatabaseObserver observer =  new DatabaseObserver(firebaseClient, folder, project);
+                await observer.Subscribe(updateEvent);
+                databaseObservers.Add(observer);
             }
         }
 
+        public string PushToProject(string folder, string json)
+        {
+            return firebaseClient.Child("bases").Child(project).Child(folder).PostAsync(json).Result.Key;
+        }
+
+        public string WaitForUpdate(CancellationToken cancellationToken)
+        {
+            //updateEvent.WaitOne();
+            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
+
+            string markerData = DataManager.GetInstance().markerData.ToString();
+            Console.WriteLine(markerData);
+            return markerData;
+        }
+
+        public async Task Teardown()
+        {
+            // Unsubscribe observers
+            foreach (DatabaseObserver observer in databaseObservers)
+            {
+                await observer.Unsubscribe();
+            }
+        }
 
         private async Task<string> GetAccessToken(string pathToKeyFile)
         {

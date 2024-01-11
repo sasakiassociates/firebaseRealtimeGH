@@ -19,7 +19,7 @@ namespace firebaseRealtime
     {
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
-        private OldRepository repository;
+        private Repository repository;
         public string incomingData;
         private bool listening = false;
 
@@ -70,7 +70,7 @@ namespace firebaseRealtime
 
             if (listening == false)
             {
-                repository = OldRepository.GetInstance(keyDirectory, url);
+                repository = Repository.GetInstance(keyDirectory, url, "test_proj");
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
 
@@ -83,11 +83,12 @@ namespace firebaseRealtime
 
         private async Task ListenThread(CancellationToken cancellationToken)
         {
-            await repository.SubscribeAsync();
+            List<string> foldersToWatch = new List<string> { "marker", "config" };
+            await repository.Setup(foldersToWatch);
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                incomingData = repository.WaitForNewData(cancellationToken);
+                incomingData = repository.WaitForUpdate(cancellationToken);
 
                 Console.WriteLine("New data received");
 
@@ -98,7 +99,7 @@ namespace firebaseRealtime
                 });
             }
 
-            await repository.UnsubscribeAsync();
+            await repository.Teardown();
         }
 
         /// <summary>
