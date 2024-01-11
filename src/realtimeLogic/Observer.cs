@@ -4,6 +4,7 @@ using Firebase.Database.Streaming;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,8 @@ namespace realtimeLogic
         public string project;
         IDisposable subscription;
         string folder;
-        string listenerPlaceholder = "{ \"listener\": {\"status\": \"listening\"}}";
+        string observerId = Guid.NewGuid().ToString();
+        string observerDataJson;
 
         public DatabaseObserver(FirebaseClient firebaseClient, string targetFolder, string projectName) 
         { 
@@ -29,11 +31,12 @@ namespace realtimeLogic
             strategy = EventHandlerFactory.createStrategy(targetFolder);
             observingFolder = firebaseClient.Child("bases").Child(project).Child(targetFolder);
             folder = targetFolder;
+            observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
         public async Task Subscribe(AutoResetEvent updateEvent)
         {
-            listenerKey = await observingFolder.PostAsync(listenerPlaceholder);
+            await observingFolder.Child("listeners").PutAsync(observerDataJson);
             subscription = observingFolder.AsObservable<JObject>().Subscribe(d => strategy.Parse(d, updateEvent), ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"bases/{project}/{folder}\"");
         }
@@ -43,7 +46,7 @@ namespace realtimeLogic
             if (subscription != null)
             {
                 subscription.Dispose();
-                await observingFolder.Child(listenerKey.Key).DeleteAsync();
+                await observingFolder.Child("listeners").Child(observerId).DeleteAsync();
                 Console.WriteLine($"Unsubscribed from \"bases\"/{project}/{folder}\"");
             }
             else

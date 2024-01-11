@@ -51,11 +51,6 @@ namespace realtimeLogic
             string output = "{\n";
             foreach (var key in dictionary.Keys)
             {
-                if (key == "listener")
-                {
-                    continue;
-                }
-
                 output += $" \"{key}\": {dictionary[key]},\n";
             }
 

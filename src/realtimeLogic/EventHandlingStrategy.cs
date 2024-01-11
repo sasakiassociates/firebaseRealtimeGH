@@ -48,6 +48,11 @@ namespace realtimeLogic
         {
             string uuid = eventSource.Key;
 
+            if (uuid == "listeners")
+            {
+                return;
+            }
+
             if (eventSource.EventType == FirebaseEventType.InsertOrUpdate)
             {
                 if (dataDictionary.ContainsKey(uuid))
@@ -90,6 +95,11 @@ namespace realtimeLogic
         {
             string optionName = eventSource.Key;
             string optionValue = eventSource.Object.ToString();
+
+            if (optionName == "listeners")
+            {
+                return;
+            }
 
             if (optionName == "updateInterval")
             {

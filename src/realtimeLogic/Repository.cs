@@ -59,7 +59,7 @@ namespace realtimeLogic
             //updateEvent.WaitOne();
             WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
 
-            string markerData = DataManager.GetInstance().markerData.ToString();
+            string markerData = DataManager.GetInstance().markerData;
             Console.WriteLine(markerData);
             return markerData;
         }

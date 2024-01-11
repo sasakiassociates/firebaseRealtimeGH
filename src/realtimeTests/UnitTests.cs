@@ -47,7 +47,7 @@ namespace realtimeTests
             // Start a new thread where the cancellation token will be cancelled after 5 seconds
             _ = Task.Run(() =>
             {
-                Thread.Sleep(2000);
+                Thread.Sleep(6000);
                 cancellationTokenSource.Cancel();
             });
 
