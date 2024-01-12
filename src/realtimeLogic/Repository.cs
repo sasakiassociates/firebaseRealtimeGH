@@ -16,15 +16,13 @@ namespace realtimeLogic
         private static Repository instance;
         private List<DatabaseObserver> databaseObservers = new List<DatabaseObserver>();
         public AutoResetEvent updateEvent = new AutoResetEvent(false);
-        string project;
 
-        private Repository(string pathToKeyFile, string firebaseUrl, string projectName)
+        private Repository(string pathToKeyFile, string firebaseUrl)
         {
             firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
-            project = projectName;
         }
 
-        public static Repository GetInstance(string pathToKeyFile, string firebaseUrl, string projectName)
+        public static Repository GetInstance(string pathToKeyFile, string firebaseUrl)
         {
             if (instance == null)
             {
@@ -32,18 +30,20 @@ namespace realtimeLogic
                 {
                     if (instance == null)
                     {
-                        instance = new Repository(pathToKeyFile, firebaseUrl, projectName);
+                        instance = new Repository(pathToKeyFile, firebaseUrl);
                     }
                 }
             }
             return instance;
         }
 
-        public async Task Setup(List<string> foldersToObserve)
+        
+
+        public async Task Setup(List<string> _targetFolders)
         {
-            foreach (string folder in foldersToObserve)
+            foreach (string folder in _targetFolders)
             {
-                DatabaseObserver observer =  new DatabaseObserver(firebaseClient, folder, project);
+                DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
                 await observer.Subscribe(updateEvent);
                 databaseObservers.Add(observer);
             }
@@ -51,17 +51,23 @@ namespace realtimeLogic
 
         public string PushToProject(string folder, string json)
         {
-            return firebaseClient.Child("bases").Child(project).Child(folder).PostAsync(json).Result.Key;
+            return firebaseClient.Child(folder).PostAsync(json).Result.Key;
         }
 
         public string WaitForUpdate(CancellationToken cancellationToken)
         {
-            //updateEvent.WaitOne();
             WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
 
-            string markerData = DataManager.GetInstance().markerData;
-            Console.WriteLine(markerData);
-            return markerData;
+            string incomingData = "";
+            foreach (DatabaseObserver observer in databaseObservers)
+            {
+                if (observer.updatedData != null)
+                { 
+                    incomingData += observer.folderName + ": " + observer.updatedData;
+                }
+            }
+
+            return incomingData;
         }
 
         public async Task Teardown()

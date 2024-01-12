@@ -22,6 +22,7 @@ namespace firebaseRealtime
         private Repository repository;
         public string incomingData;
         private bool listening = false;
+        public List<string> targetFolders = new List<string>();
 
         public string keyDirectory = "";
         public string url = "";
@@ -48,6 +49,8 @@ namespace firebaseRealtime
         {
             pManager.AddTextParameter("Key directory", "K", "Key", GH_ParamAccess.item);
             pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
+            // A list of folders to watch, each in the format "parent/child/folder1"
+            pManager.AddTextParameter("Target Folders", "F", "Target Folders", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -67,12 +70,14 @@ namespace firebaseRealtime
         {
             DA.GetData("Key directory", ref keyDirectory);
             DA.GetData("Database URL", ref url);
+            DA.GetDataList("Target Folders", targetFolders);
 
             if (listening == false)
             {
-                repository = Repository.GetInstance(keyDirectory, url, "test_proj");
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
+                
+                repository = Repository.GetInstance(keyDirectory, url);
 
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
@@ -83,8 +88,7 @@ namespace firebaseRealtime
 
         private async Task ListenThread(CancellationToken cancellationToken)
         {
-            List<string> foldersToWatch = new List<string> { "marker", "config" };
-            await repository.Setup(foldersToWatch);
+            await repository.Setup(targetFolders);
 
             while (!cancellationToken.IsCancellationRequested)
             {

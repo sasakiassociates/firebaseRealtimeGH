@@ -19,8 +19,8 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            newRepo = Repository.GetInstance(pathToKeyFile, firebaseUrl, "test_proj");
-            List<string> foldersToWatch = new List<string> { "marker", "config" };
+            newRepo = Repository.GetInstance(pathToKeyFile, firebaseUrl);
+            List<string> foldersToWatch = new List<string> { "bases/test_proj/marker", "bases/test_proj/config" };
             await newRepo.Setup(foldersToWatch);
         }
 
