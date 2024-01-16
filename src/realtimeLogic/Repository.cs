@@ -37,7 +37,10 @@ namespace realtimeLogic
             return instance;
         }
 
-        
+        public async Task PutAsync(string json)
+        {
+            await firebaseClient.Child("bases").Child("test_proj").Child("config").PutAsync(json);
+        }
 
         public async Task Setup(List<string> _targetFolders)
         {

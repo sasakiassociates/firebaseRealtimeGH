@@ -6,10 +6,9 @@ namespace realtimeTests
 {
     public class Tests
     {
-        OldRepository _repository;
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
-        Repository newRepo;
+        Repository _repository;
 
         string testMarkerString = "{ \"listener\": {\"status\": \"listening\"}}";
         string testMarkerChangeString = "{ \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -700, \"y\": -500, \"rotation\": 0}}";
@@ -19,15 +18,15 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            newRepo = Repository.GetInstance(pathToKeyFile, firebaseUrl);
+            _repository = Repository.GetInstance(pathToKeyFile, firebaseUrl);
             List<string> foldersToWatch = new List<string> { "bases/test_proj/marker", "bases/test_proj/config" };
-            await newRepo.Setup(foldersToWatch);
+            await _repository.Setup(foldersToWatch);
         }
 
         [TearDown]
         public async Task TearDown()
         {
-            await newRepo.Teardown();
+            await _repository.Teardown();
         }
 
         [Test]
@@ -54,13 +53,13 @@ namespace realtimeTests
             while (!cancellationToken.IsCancellationRequested)
             {
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
-                string markers = newRepo.WaitForUpdate(cancellationToken);
+                string markers = _repository.WaitForUpdate(cancellationToken);
             }
 
             Assert.Pass();
         }
 
-        [Test]
+        /*[Test]
         public async Task PostAsync()
         {
             string testJson = "{\"listening\": true, \"Test\": \"Yes\"}";
@@ -85,20 +84,21 @@ namespace realtimeTests
             string intervalJson = "{\"update_interval\": 1000}";
             await _repository.PutAsync(intervalJson, "config");
             Assert.Pass();
-        }
+        }*/
 
         [Test]
         public async Task PutAsync()
         {
-            string testJson = "{\"listening\": true}";
+            //string testJson = "{\"listening\": true}";
+            string testCadPoints = "{\"cad_points\": [[-509061.077,-150217.700], [120741.836,184999.979], [321393.888,-191982.664], [-308409.025,-527200.343]]}";
 
-            await _repository.PutAsync(testJson);
+            await _repository.PutAsync(testCadPoints);
             Console.WriteLine("Put");
 
             Assert.Pass();
         }
 
-        [Test]
+        /*[Test]
         public async Task SubscribePostDeleteUnsubscribe()
         {
             await _repository.PutAsync(testMarkerString);
@@ -121,6 +121,6 @@ namespace realtimeTests
             Console.WriteLine("Unsubscribed");
 
             Assert.Pass();
-        }
+        }*/
     }
 }

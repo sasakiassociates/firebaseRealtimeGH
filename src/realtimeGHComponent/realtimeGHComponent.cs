@@ -51,6 +51,8 @@ namespace firebaseRealtime
             pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
             // A list of folders to watch, each in the format "parent/child/folder1"
             pManager.AddTextParameter("Target Folders", "F", "Target Folders", GH_ParamAccess.list);
+
+            // TODO make the last input optional and add a default behavior to watch the entire database
         }
 
         /// <summary>
