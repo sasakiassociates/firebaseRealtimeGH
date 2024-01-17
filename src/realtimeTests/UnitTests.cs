@@ -18,7 +18,8 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            _repository = Repository.GetInstance(pathToKeyFile, firebaseUrl);
+            _repository = Repository.GetInstance();
+            _repository.Connect(pathToKeyFile, firebaseUrl);
             List<string> foldersToWatch = new List<string> { "bases/test_proj/marker", "bases/test_proj/config" };
             await _repository.Setup(foldersToWatch);
         }
@@ -86,13 +87,40 @@ namespace realtimeTests
             Assert.Pass();
         }*/
 
+        // Sending this way makes sure that the previous data is overriden
         [Test]
-        public async Task PutAsync()
+        public async Task PutAsyncObject()
+        {
+            List < object > points = new List<object>();
+            /*points.Add(new int[] { -543256, -206823 });
+            points.Add(new int[] { 119459, 134001 });
+            points.Add(new int[] { 319944, -255831 });
+            points.Add(new int[] { -342771, -596656 });*/
+            points.Add(new int[] { -789, -206823 });
+            points.Add(new int[] { 6542, 3456 });
+            points.Add(new int[] { 596656, -119364459 });
+            points.Add(new int[] { -363, -596656 });
+
+            await _repository.PutAsync(points, "bases/test_proj/config/cad_points");
+        }
+
+        // Seinding this way appends new data to the existing data if it isn't already there
+        [Test]
+        public async Task PutAsyncList()
         {
             //string testJson = "{\"listening\": true}";
-            string testCadPoints = "{\"cad_points\": [[-509061.077,-150217.700], [120741.836,184999.979], [321393.888,-191982.664], [-308409.025,-527200.343]]}";
+            List<object> testCadPoints = new List<object>
+            {
+                new object[] { -543256.559,-206823.998 },
+                new object[] { 119459.325,134001.313 },
+                new object[] { 319944.803, -255831.560 },
+                new object[] { -342771.081, -596656.872 },
+            };
+            /*List<object> testObjects = new List<object>();
+            testObjects.Add(new { id = 1, x = 0, y = 0, rotation = 0 });
+            testObjects.Add(new { id = 2, x = 100, y = 100, rotation = 0 });*/
 
-            await _repository.PutAsync(testCadPoints);
+            await _repository.PutAsync(testCadPoints, "bases/test_proj/config/cad_points");
             Console.WriteLine("Put");
 
             Assert.Pass();
