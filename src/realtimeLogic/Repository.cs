@@ -55,9 +55,9 @@ namespace realtimeLogic
             // split the target folder by the slashes
             string[] folders = _targetFolderString.Split('/');
 
-            string _key = folders[folders.Length - 1];
+            /*string _key = folders[folders.Length - 1];
             // Get rid of the key from the folders list
-            Array.Resize(ref folders, folders.Length - 1);
+            Array.Resize(ref folders, folders.Length - 1);*/
 
             ChildQuery targetFolder = null;
             
@@ -73,14 +73,14 @@ namespace realtimeLogic
                 }
             }
 
-            Dictionary<string, object> sendObject = new Dictionary<string, object>
+            /*Dictionary<string, object> sendObject = new Dictionary<string, object>
             {
                 { _key, dataPoints }
-            };
+            };*/
 
-            Console.WriteLine(JsonConvert.SerializeObject(sendObject));
+            Console.WriteLine(JsonConvert.SerializeObject(dataPoints));
 
-            await targetFolder.PutAsync(sendObject);
+            await targetFolder.PutAsync(dataPoints);
         }
         /*public async Task PutAsync(object dataPoint, string _targetFolderString)
         {
