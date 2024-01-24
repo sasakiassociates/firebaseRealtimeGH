@@ -43,6 +43,7 @@ namespace realtimeLogic
             observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
+        // TODO for some reason this isn't working with the config folder (format? marker folder observer overriding something?)
         public async Task Subscribe(AutoResetEvent _updateEvent)
         {
             updateEvent = _updateEvent;
@@ -52,11 +53,13 @@ namespace realtimeLogic
             InitialPull();
 
             subscription = observingFolder
-                .AsObservable<JObject>()
+                .AsObservable<JToken>()
                 .Subscribe(_firebaseEvent =>
                 {
+                    Console.WriteLine($"Received event: {_firebaseEvent.EventType} {folderName} {_firebaseEvent.Key} {_firebaseEvent.Object}");
                     // Use the key (e.g., object ID) to identify each object
                     string objectId = _firebaseEvent.Key;
+                    JToken data = _firebaseEvent.Object;
 
                     // TODO find a better way to handle these cases
                     if (objectId == "listeners")
@@ -65,15 +68,13 @@ namespace realtimeLogic
                     }
                     if (objectId == "update_interval")
                     {
-                        Console.WriteLine("Update interval changed");
-                        int milliseconds = _firebaseEvent.Object.ToObject<int>();
+                        // Convert the data to an int
+                        int milliseconds = int.Parse(data.ToString());
                         debouncer.SetDebounceDelay(milliseconds);
-                        return;
                     }
 
                     // Debouncer starts a timer that will wait to process the updates until the timer expires
                     // TODO this needs to be changed to allow for multiple observers to run updates
-                    Console.WriteLine($"Received update from \"{folderName}\"");
                     debouncer.Debounce(() =>
                     {
                         updatedData = DictionaryToString(dataDictionary);
@@ -133,19 +134,22 @@ namespace realtimeLogic
         {
             if (dataDictionary.ContainsKey(uuid))
             {
-                Console.WriteLine($"Updating existing data for {uuid}");
                 dataDictionary[uuid] = data;
             }
             else
             {
-                Console.WriteLine($"Adding new data for {uuid}");
                 dataDictionary.Add(uuid, data);
             }
         }
 
-        public void ParseEvent(FirebaseEvent<JObject> _firebaseEvent)
+        public void ParseEvent(FirebaseEvent<JToken> _firebaseEvent)
         {
             string uuid = _firebaseEvent.Key;
+            if (uuid == null || uuid == "")
+            {
+                Console.WriteLine("No UUID");
+                return;
+            }
 
             if (_firebaseEvent.EventType == FirebaseEventType.InsertOrUpdate)
             {

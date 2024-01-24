@@ -3,6 +3,10 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using NUnit.Framework.Internal.Execution;
 using realtimeLogic;
+using System.Diagnostics.Contracts;
+using Firebase.Database;
+using Firebase.Database.Query;
+using Google.Apis.Auth.OAuth2;
 
 namespace realtimeTests
 {
@@ -157,7 +161,7 @@ namespace realtimeTests
         [Test]
         public async Task SubscribePostToConfigReceieve()
         {
-            await _repository.Setup(new List<string> { "bases/test_proj" });
+            await _repository.Setup(new List<string> { "bases/test_base/config" });
 
             // Start a thread that waits for an update
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
@@ -181,11 +185,11 @@ namespace realtimeTests
                 {
                     { "bounding_markers", new List<int> { 0, 1, 2, 3, 4 } }
                 };
-                await _repository.PutAsync(testDict, "bases/test_proj/config/test");
+                await _repository.PutAsync(testDict, "bases/test_base/config");
                 Thread.Sleep(1000);
-                await _repository.PutAsync(newTest, "bases/test_proj/config/test");
+                await _repository.PutAsync(newTest, "bases/test_base/config");
                 Thread.Sleep(1000);
-                _repository.Delete("bases/test_proj/config/test");
+                _repository.Delete("bases/test_base/config");
             });
 
             while (!cancellationToken.IsCancellationRequested)
@@ -193,8 +197,9 @@ namespace realtimeTests
                 Console.WriteLine("Waiting for update");
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
                 string message = _repository.WaitForUpdate(cancellationToken);
-                Console.WriteLine(message);
             }
+
+            Assert.Pass();
         }
 
         [Test]
@@ -225,6 +230,64 @@ namespace realtimeTests
             Console.WriteLine(jsonObject["1e537e37-54c0-4c64-8751-da51a6e1abf4"].x);
             Console.WriteLine(jsonObject["1e537e37-54c0-4c64-8751-da51a6e1abf4"].y);
             Assert.Pass();
+        }
+
+        [Test]
+        public async Task SubscribeUpdate()
+        {
+            FirebaseClient _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
+            ChildQuery observingFolder = _firebaseClient.Child("bases").Child("test_base").Child("config");
+
+            await observingFolder.PutAsync("{\"test\": 1}");
+
+            int updates = 0;
+            IDisposable subscription = observingFolder
+                .AsObservable<JToken>()
+                .Subscribe(_firebaseEvent =>
+                {
+                    if (_firebaseEvent.Key == null || _firebaseEvent.Key == "")
+                    {
+                        Console.WriteLine("no key");
+                        return;
+                    }
+
+                    Console.WriteLine($"Received event: {_firebaseEvent.EventType} {_firebaseEvent.Key} {_firebaseEvent.Object}");
+                    updates++;
+                    Console.WriteLine(updates);
+                });
+
+            _ = Task.Run(async () =>
+            {
+                Dictionary<string, object> testDict = new Dictionary<string, object>
+                {
+                    { "bounding_markers", new List<int> { 0, 1, 2, 3 } }
+                };
+                Thread.Sleep(1000);
+                Dictionary<string, object> newTest = new Dictionary<string, object>
+                {
+                    { "bounding_markers", new List<int> { 0, 1, 2, 3, 4 } }
+                };
+                await observingFolder.PostAsync(testDict);
+                Thread.Sleep(1000);
+                await observingFolder.PostAsync(newTest);
+                Thread.Sleep(1000);
+                _repository.Delete("bases/test_base/config");
+            });
+
+            Thread.Sleep(5000);
+
+            subscription.Dispose();
+        }
+
+        private async Task<string> GetAccessToken(string pathToKeyFile)
+        {
+            var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/firebase.database"
+            });
+
+            ITokenAccess c = credential as ITokenAccess;
+            return await c.GetAccessTokenForRequestAsync();
         }
     }
 }
