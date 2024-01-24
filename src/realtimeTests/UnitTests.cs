@@ -8,7 +8,7 @@ namespace realtimeTests
 {
     public class Tests
     {
-        private const string testConfigJson = "{ \"config\": " +
+        private const string testConfigJson = " \"config\": " +
             "{\r\n  \"base_aruco_marker_id\": 8," +
             "\r\n  \"cad_points\": [\r\n    " +
             "{\r\n      \"Boundingbox\": " +
@@ -44,13 +44,13 @@ namespace realtimeTests
             "\r\n      \"TypeName\": \"Point\"," +
             "\r\n      \"Value\": " +
             "{\r\n        \"X\": 0.0,\r\n        \"Y\": 100.0,\r\n        \"Z\": 0.0\r\n      }\r\n    }]," +
-            "\r\n  \"update_interval\": 1000\r\n}\r\n\r\n}";
+            "\r\n  \"update_interval\": 1000\r\n}\r\n";
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
         Repository _repository;
 
-        string testListenerString = "{ \"listener\": {\"status\": \"listening\"}}";
-        string testMarkerChangeString = "{ \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -700, \"y\": -500, \"rotation\": 0}}";
+        string testListenerString = " \"listener\": {\"status\": \"listening\"}";
+        string testMarkerChangeString = " \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -700, \"y\": -500, \"rotation\": 0}";
         string testMarkerChangeString2 = "{ \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -650, \"y\": -450, \"rotation\": 0.5}}";
         string testMarkerChangeString3 = "{ \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -600, \"y\": -400, \"rotation\": 1}}";
 
@@ -205,6 +205,25 @@ namespace realtimeTests
             Console.WriteLine(jsonObject.config.base_aruco_marker_id);
             Console.WriteLine(jsonObject.config.cad_points[0].Value.X);
             Console.WriteLine(jsonObject.config.cad_points[0].Value.Y);
+            Assert.Pass();
+        }
+
+        [Test]
+        public void ParseCombinedJson()
+        {
+            string combinedJson = "{";
+            combinedJson += testConfigJson;
+            combinedJson += ",";
+            combinedJson += testListenerString;
+            combinedJson += ",";
+            combinedJson += testMarkerChangeString;
+            combinedJson += "}";
+
+            dynamic jsonObject = JsonConvert.DeserializeObject(combinedJson);
+            Console.WriteLine(jsonObject.listener.status);
+            Console.WriteLine(jsonObject["1e537e37-54c0-4c64-8751-da51a6e1abf4"].id);
+            Console.WriteLine(jsonObject["1e537e37-54c0-4c64-8751-da51a6e1abf4"].x);
+            Console.WriteLine(jsonObject["1e537e37-54c0-4c64-8751-da51a6e1abf4"].y);
             Assert.Pass();
         }
     }

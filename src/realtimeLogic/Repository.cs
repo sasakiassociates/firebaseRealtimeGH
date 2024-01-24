@@ -168,15 +168,18 @@ namespace realtimeLogic
         {
             WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
 
-            string incomingData = "";
+            string incomingData = "{";
             foreach (DatabaseObserver observer in databaseObservers)
             {
-                if (observer.updatedData != null)
-                { 
-                    //incomingData += observer.folderName + ": " + observer.updatedData;
-                    incomingData += observer.updatedData;
+                if (observer.updatedData == null)
+                {
+                    continue;
                 }
+                incomingData += "\"" + observer.folderName + "\": " + observer.updatedData;
+                // Check if this needs a comma
+                incomingData += ",\n";
             }
+            incomingData += "}";
 
             return incomingData;
         }

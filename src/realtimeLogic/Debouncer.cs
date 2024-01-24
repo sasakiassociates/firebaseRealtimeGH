@@ -1,6 +1,4 @@
-﻿using Firebase.Database.Streaming;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
@@ -28,37 +26,23 @@ namespace realtimeLogic
         }
 
         private Timer timer;
-        public int update_interval = 1000;
-        private Dictionary<string, Action> idActionPairs = new Dictionary<string, Action>();
+        public int update_interval = 200;
 
         public void SetDebounceDelay(int milliseconds)
         {
             update_interval = milliseconds;
         }
 
-        public void Debounce(string id, Action action, AutoResetEvent _event)
+        public void Debounce(Action action)
         {
             if (timer == null)
             {
                 timer = new Timer((object state) =>
                 {
-                    foreach (KeyValuePair<string, Action> pair in idActionPairs)
-                    {
-                        pair.Value();
-                    }
-                    _event.Set();
+                    action();
                     timer.Dispose();
                     timer = null;
                 }, null, update_interval, Timeout.Infinite);
-            }
-            
-            if (idActionPairs.ContainsKey(id))
-            {
-                idActionPairs[id] = action;
-            }
-            else
-            {
-                idActionPairs.Add(id, action);
             }
         }
     }

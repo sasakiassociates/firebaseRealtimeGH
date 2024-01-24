@@ -1,8 +1,10 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
 using Firebase.Database.Streaming;
+using LiteDB;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -28,7 +30,6 @@ namespace realtimeLogic
         FirebaseClient firebaseClient;
 
         Debouncer debouncer = Debouncer.GetInstance();
-        private object latestUpdatesLock = new object();
 
         public DatabaseObserver(FirebaseClient _firebaseClient, string targetFolder) 
         { 
@@ -57,11 +58,11 @@ namespace realtimeLogic
                     // Use the key (e.g., object ID) to identify each object
                     string objectId = _firebaseEvent.Key;
 
+                    // TODO find a better way to handle these cases
                     if (objectId == "listeners")
                     {
                         return;
                     }
-
                     if (objectId == "update_interval")
                     {
                         Console.WriteLine("Update interval changed");
@@ -73,13 +74,17 @@ namespace realtimeLogic
                     // Debouncer starts a timer that will wait to process the updates until the timer expires
                     // TODO this needs to be changed to allow for multiple observers to run updates
                     Console.WriteLine($"Received update from \"{folderName}\"");
-                    debouncer.Debounce(objectId, async () =>
+                    debouncer.Debounce(() =>
                     {
-                        await ParseEventAsync(_firebaseEvent);
-                    }, _updateEvent);
+                        updatedData = DictionaryToString(dataDictionary);
+                        updateEvent.Set();
+                    });
+
+                    ParseEvent(_firebaseEvent);
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"{folderName}\"");
+
         }
 
         private async void InitialPull()
@@ -92,19 +97,19 @@ namespace realtimeLogic
                 {
                     continue;
                 }
+                if (data.Key == "update_interval")
+                {
+                    Console.WriteLine("Update interval changed");
+                    int milliseconds = int.Parse(data.Object.ToString());
+                    debouncer.SetDebounceDelay(milliseconds);
+                }
 
                 string dataJson = Newtonsoft.Json.JsonConvert.SerializeObject(data.Object);
                 Console.WriteLine($"Initial pull: {data.Key} {dataJson}");
-                await ParseDatapointAsync(data.Key, dataJson);
+                ParseDatapoint(data.Key, dataJson);
             }
-        }
 
-        private async Task ProcessBatchedChangesAsync(List<FirebaseEvent<JObject>> batchedChanges)
-        {
-            foreach (FirebaseEvent<JObject> _firebaseEvent in batchedChanges)
-            {
-                await ParseEventAsync(_firebaseEvent);
-            }
+            updatedData = DictionaryToString(dataDictionary);
 
             updateEvent.Set();
         }
@@ -124,7 +129,7 @@ namespace realtimeLogic
             }
         }
 
-        public async Task ParseDatapointAsync(string uuid, string data)
+        public void ParseDatapoint(string uuid, string data)
         {
             if (dataDictionary.ContainsKey(uuid))
             {
@@ -136,18 +141,15 @@ namespace realtimeLogic
                 Console.WriteLine($"Adding new data for {uuid}");
                 dataDictionary.Add(uuid, data);
             }
-
-            updatedData = DictionaryToString(dataDictionary);
-
-            updateEvent.Set();
         }
 
-        public async Task ParseEventAsync(FirebaseEvent<JObject> _firebaseEvent)
+        public void ParseEvent(FirebaseEvent<JObject> _firebaseEvent)
         {
             string uuid = _firebaseEvent.Key;
 
             if (_firebaseEvent.EventType == FirebaseEventType.InsertOrUpdate)
             {
+                // TODO we need to get to another level down from here because it's just updating the whole folder
                 if (dataDictionary.ContainsKey(uuid))
                 {
                     Console.WriteLine($"Updating existing data for {uuid}");
@@ -167,12 +169,15 @@ namespace realtimeLogic
                     dataDictionary.Remove(uuid);
                 }
             }
-
-            updatedData = DictionaryToString(dataDictionary);
         }
 
         private string DictionaryToString(Dictionary<string, string> dictionary)
         {
+            if (dictionary.Count == 0)
+            {
+                return null;
+            }
+
             string output = "{\n";
             // TODO this enumeration gets interrupted by new data coming in, so it's not thread safe
             foreach (var key in dictionary.Keys)

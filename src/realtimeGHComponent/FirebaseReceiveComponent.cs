@@ -94,6 +94,7 @@ namespace firebaseRealtime
                 repository.Connect(keyDirectory, url);
             }
 
+
             await repository.Setup(targetFolders);
 
             while (!cancellationToken.IsCancellationRequested)
