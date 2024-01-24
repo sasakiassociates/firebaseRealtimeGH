@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +42,10 @@ namespace realtimeLogic
         public void Connect(string pathToKeyFile, string firebaseUrl)
         {
             firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
-            connected = true;
+            if (firebaseClient != null)
+            {
+                connected = true;
+            }
         }
 
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
@@ -54,10 +58,6 @@ namespace realtimeLogic
             }
             // split the target folder by the slashes
             string[] folders = _targetFolderString.Split('/');
-
-            /*string _key = folders[folders.Length - 1];
-            // Get rid of the key from the folders list
-            Array.Resize(ref folders, folders.Length - 1);*/
 
             ChildQuery targetFolder = null;
             
@@ -73,28 +73,19 @@ namespace realtimeLogic
                 }
             }
 
-            /*Dictionary<string, object> sendObject = new Dictionary<string, object>
-            {
-                { _key, dataPoints }
-            };*/
-
             Console.WriteLine(JsonConvert.SerializeObject(dataPoints));
 
             await targetFolder.PutAsync(dataPoints);
         }
-        /*public async Task PutAsync(object dataPoint, string _targetFolderString)
+        public async Task PutAsync(object dataPoint, string pathToObjectToUpdate)
         {
-            if (_targetFolderString == null)
+            if (pathToObjectToUpdate == null)
             {
                 throw new Exception("Target folder is null");
                 //await firebaseClient.Child("").PutAsync(json);
             }
             // split the target folder by the slashes
-            string[] folders = _targetFolderString.Split('/');
-
-            string key = folders[folders.Length - 1];
-            // Get rid of the key from the folders list
-            Array.Resize(ref folders, folders.Length - 1);
+            string[] folders = pathToObjectToUpdate.Split('/');
 
             ChildQuery targetFolder = null;
 
@@ -110,17 +101,19 @@ namespace realtimeLogic
                 }
             }
 
-            await targetFolder.PutAsync(dataPoint);
-        }*/
+            //Console.WriteLine(JsonConvert.SerializeObject(dataPoint));
 
-        public void Delete(string _targetFolderString)
+            await targetFolder.PutAsync(dataPoint);
+        }
+
+        public void Delete(string pathToObjectToUpdate)
         {
-            if (_targetFolderString == null)
+            if (pathToObjectToUpdate == null)
             {
                 throw new Exception("Target folder is null");
             }
             // split the target folder by the slashes
-            string[] folders = _targetFolderString.Split('/');
+            string[] folders = pathToObjectToUpdate.Split('/');
             // The last string is the key
             string key = folders[folders.Length - 1];
 
@@ -180,7 +173,8 @@ namespace realtimeLogic
             {
                 if (observer.updatedData != null)
                 { 
-                    incomingData += observer.folderName + ": " + observer.updatedData;
+                    //incomingData += observer.folderName + ": " + observer.updatedData;
+                    incomingData += observer.updatedData;
                 }
             }
 
