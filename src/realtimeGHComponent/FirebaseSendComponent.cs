@@ -17,7 +17,7 @@ namespace realtimeGHComponent
         Repository _repository;
         string firebaseUrl;
         string pathToKeyFile;
-        string destination;
+        List<string> destinations = new List<string>();
         List<object> incomingData = new List<object>();
         bool send = false;
         List<object> previousData = new List<object>();
@@ -26,11 +26,12 @@ namespace realtimeGHComponent
         /// Initializes a new instance of the SendFirebase class.
         /// </summary>
         public FirebaseSendComponent()
-          : base("Firrebase Send", "Nickname",
-              "Description",
+          : base("Firebase Send", "Send",
+              "Send things to a Firebase repository",
               "Strategist", "Firebase")
         {
             Attributes = new FirebaseSendAttributes(this);
+            _repository = new Repository();
         }
 
         /// <summary>
@@ -39,7 +40,7 @@ namespace realtimeGHComponent
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Data", "Data", "The data to send to the Firebase database", GH_ParamAccess.list);
-            pManager.AddTextParameter("Destination", "Destination", "The specific location in the Firebase database to send the data in the format 'cad_points' or 'examplefolder/subfolder/cad_points' WARNING: this overrides any data in the designated location", GH_ParamAccess.item);
+            pManager.AddTextParameter("Destinations", "Destinations", "The specific location(s) in the Firebase database to send the data in the format 'cad_points' or 'examplefolder/subfolder/cad_points' WARNING: this overrides any data in the designated location", GH_ParamAccess.list);
             pManager.AddTextParameter("Key directory", "Key directory", "The directory of the key file for the Firebase database", GH_ParamAccess.item);
             pManager.AddTextParameter("Database URL", "Database URL", "The URL of the Firebase database", GH_ParamAccess.item);
 
@@ -63,14 +64,13 @@ namespace realtimeGHComponent
             incomingData.Clear();
 
             DA.GetDataList("Data", incomingData);
-            DA.GetData("Destination", ref destination);
+            DA.GetDataList("Destinations", destinations);
             DA.GetData("Key directory", ref pathToKeyFile);
             DA.GetData("Database URL", ref firebaseUrl);
 
-            _repository = Repository.GetInstance();
             if (_repository.connected == false)
             {
-                _repository.Connect(pathToKeyFile, firebaseUrl);
+                _repository.TryAuthenticate(pathToKeyFile, firebaseUrl);
             }
         }
 
@@ -90,7 +90,10 @@ namespace realtimeGHComponent
         public void SendData()
         {
             previousData = incomingData;
-            _ = _repository.PutAsync(incomingData, destination);
+            foreach (string destination in destinations)
+            {
+                _ = _repository.PutAsync(incomingData, destination);
+            }
         }
 
         public class FirebaseSendAttributes : GH_ComponentAttributes

@@ -40,6 +40,7 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
+            repository = new Repository();
         }
 
         /// <summary>
@@ -47,11 +48,15 @@ namespace firebaseRealtime
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Key directory", "K", "Key. Optional if the Repository is already connected in this sketch", GH_ParamAccess.item);
-            pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
             // A list of folders to watch, each in the format "parent/child/folder1"
             pManager.AddTextParameter("Target Folders", "F", "Target Folders", GH_ParamAccess.list);
             // TODO make the last input optional and add a default behavior to watch the entire database
+            pManager.AddTextParameter("Key directory", "K", "Key. Optional if the Repository is already connected in this sketch", GH_ParamAccess.item);
+            pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
+            
+            // Credentials can be specified here or added to the credentials component
+            pManager[1].Optional = true;
+            pManager[2].Optional = true;
         }
 
         /// <summary>
@@ -69,17 +74,27 @@ namespace firebaseRealtime
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            DA.GetDataList("Target Folders", targetFolders);
             DA.GetData("Key directory", ref keyDirectory);
             DA.GetData("Database URL", ref url);
-            DA.GetDataList("Target Folders", targetFolders);
 
+            if (repository.connected == false)
+            {
+                repository.TryAuthenticate(keyDirectory, url);
+            }
+
+            if (repository.connected == false)
+            {
+                Credentials credentials = Credentials.GetInstance();
+                credentials.AddRepository(repository);
+            }
+
+            // Set up the listener thread
             if (listening == false)
             {
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
                 
-                repository = Repository.GetInstance();
-
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
             }
@@ -87,17 +102,14 @@ namespace firebaseRealtime
             DA.SetData("Incoming Data", incomingData);
         }
 
-        private async Task ListenThread(CancellationToken cancellationToken)
+        private void ListenThread(CancellationToken cancellationToken)
         {
             if (repository.connected == false)
             {
-                repository.Connect(keyDirectory, url);
+                return;
             }
 
-
-            await repository.Setup(targetFolders);
-
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested && repository.connected)
             {
                 incomingData = repository.WaitForUpdate(cancellationToken);
 
@@ -108,7 +120,7 @@ namespace firebaseRealtime
                 });
             }
 
-            await repository.Teardown();
+            repository.Teardown();
         }
 
         /// <summary>
@@ -127,6 +139,13 @@ namespace firebaseRealtime
         {
             cancellationTokenSource.Cancel();
             listening = false;
+            repository.Teardown();
+
+            // Rerun the component
+            Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+            {
+                this.ExpireSolution(true);
+            });
         }
 
         private void CancelClicked(object sender, EventArgs e)

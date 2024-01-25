@@ -115,12 +115,12 @@ namespace realtimeLogic
             updateEvent.Set();
         }
 
-        public async Task Unsubscribe()
+        public void Unsubscribe()
         {
             if (subscription != null)
             {
                 subscription.Dispose();
-                await observingFolder.Child("listeners").Child(observerId).DeleteAsync();
+                _ = observingFolder.Child("listeners").Child(observerId).DeleteAsync();
                 Console.WriteLine($"Unsubscribed from \"{folderName}\"");
             }
             else

@@ -14,38 +14,58 @@ namespace realtimeLogic
 {
     public class Repository
     {
+        // TODO move credentials to a singelton?
+        // Might want to be able to use multiple credentials in the same sketch
         internal FirebaseClient firebaseClient;
-        private static Repository instance;
         private List<DatabaseObserver> databaseObservers = new List<DatabaseObserver>();
         public AutoResetEvent updateEvent = new AutoResetEvent(false);
         public bool connected = false;
 
-        private Repository()
+        // Current connection data
+        public string keyDirectory = "";
+        public string url = "";
+        public List<string> targetNodes = new List<string>();
+
+        public Repository()
         {
         }
 
-        public static Repository GetInstance()
+        public void TryAuthenticate(string _pathToKeyFile, string _firebaseUrl)
         {
-            if (instance == null)
+            // Check if anything changed
+            if (keyDirectory == _pathToKeyFile && url == _firebaseUrl)
             {
-                lock (typeof(Repository))
-                {
-                    if (instance == null)
-                    {
-                        instance = new Repository();
-                    }
-                }
+                return;
             }
-            return instance;
-        }
 
-        public void Connect(string pathToKeyFile, string firebaseUrl)
-        {
-            firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
-            if (firebaseClient != null)
+            // If the connection is already established, tear it down
+            if (connected)
             {
+                Teardown();
+            }
+
+            // Try to connect
+            try
+            {
+                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile)});
                 connected = true;
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return;
+            }
+        }
+
+        public void Disconnect()
+        {
+            firebaseClient.Dispose();
+            connected = false;
+        }
+
+        public void Register(FirebaseClient _firebaseClient)
+        {
+            firebaseClient = _firebaseClient;
         }
 
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
@@ -137,21 +157,13 @@ namespace realtimeLogic
             targetFolder.Child(key).DeleteAsync();
         }
 
-        public ChildQuery SetTargetFolder(string _targetFolder)
+        public async Task SubscribeToNodes(List<string> _targetNodes)
         {
-            ChildQuery targetFolder = null;
-            // Split the target folder into parent and child
-            string[] targetFolderSplit = _targetFolder.Split('/');
-            foreach (string folder in targetFolderSplit)
+            if (_targetNodes == null)
             {
-                targetFolder = firebaseClient.Child(folder);
+                throw new Exception("Target folder is null");
             }
-            return targetFolder;
-        }
-
-        public async Task Setup(List<string> _targetFolders)
-        {
-            foreach (string folder in _targetFolders)
+            foreach (string folder in _targetNodes)
             {
                 DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
                 await observer.Subscribe(updateEvent);
@@ -184,13 +196,15 @@ namespace realtimeLogic
             return incomingData;
         }
 
-        public async Task Teardown()
+        public void Teardown()
         {
             // Unsubscribe observers
             foreach (DatabaseObserver observer in databaseObservers)
             {
-                await observer.Unsubscribe();
+                observer.Unsubscribe();
             }
+
+            connected = false;
         }
 
         private async Task<string> GetAccessToken(string pathToKeyFile)

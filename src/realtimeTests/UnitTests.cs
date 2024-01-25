@@ -61,8 +61,8 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            _repository = Repository.GetInstance();
-            _repository.Connect(pathToKeyFile, firebaseUrl);
+            _repository = new Repository();
+            _repository.TryAuthenticate(pathToKeyFile, firebaseUrl);
             List<string> foldersToWatch = new List<string> { "bases/test_proj/marker", "bases/test_proj/config" };
             //await _repository.Setup(foldersToWatch);
         }
@@ -70,7 +70,7 @@ namespace realtimeTests
         [TearDown]
         public async Task TearDown()
         {
-            await _repository.Teardown();
+            _repository.Teardown();
         }
 
         [Test]
@@ -161,7 +161,7 @@ namespace realtimeTests
         [Test]
         public async Task SubscribePostToConfigReceieve()
         {
-            await _repository.Setup(new List<string> { "bases/test_base/config" });
+            await _repository.SubscribeToNodes(new List<string> { "bases/test_base/config" });
 
             // Start a thread that waits for an update
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
