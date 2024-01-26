@@ -19,7 +19,6 @@ namespace realtimeGHComponent
         string pathToKeyFile;
         List<string> destinations = new List<string>();
         List<object> incomingData = new List<object>();
-        bool send = false;
         List<object> previousData = new List<object>();
 
         /// <summary>
@@ -64,13 +63,18 @@ namespace realtimeGHComponent
             incomingData.Clear();
 
             DA.GetDataList("Data", incomingData);
-            DA.GetDataList("Destinations", destinations);
+            DA.GetDataList(1, destinations);
             DA.GetData("Key directory", ref pathToKeyFile);
             DA.GetData("Database URL", ref firebaseUrl);
 
-            if (_repository.connected == false)
+            if (pathToKeyFile != null && firebaseUrl != null)
             {
-                _repository.Connect(pathToKeyFile, firebaseUrl);
+                _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
+            }
+
+            if (incomingData != previousData)
+            {
+                SendData();
             }
         }
 

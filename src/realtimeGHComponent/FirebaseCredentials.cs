@@ -50,7 +50,7 @@ namespace realtimeGHComponent
             DA.GetData("Key directory", ref key_directory);
             DA.GetData("Database URL", ref database_url);
 
-            credentials.Connect(key_directory, database_url);
+            credentials.SetSharedCredentials(key_directory, database_url);
         }
 
         /// <summary>

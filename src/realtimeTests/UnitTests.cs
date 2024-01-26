@@ -51,7 +51,7 @@ namespace realtimeTests
             "\r\n  \"update_interval\": 1000\r\n}\r\n";
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
-        Repository _repository;
+        Repository repository;
 
         string testListenerString = " \"listener\": {\"status\": \"listening\"}";
         string testMarkerChangeString = " \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -700, \"y\": -500, \"rotation\": 0}";
@@ -61,22 +61,43 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            _repository = new Repository();
-            _repository.Connect(pathToKeyFile, firebaseUrl);
-            List<string> foldersToWatch = new List<string> { "bases/test_proj/marker", "bases/test_proj/config" };
-            //await _repository.Setup(foldersToWatch);
+            Credentials.GetInstance().SetSharedCredentials(pathToKeyFile, firebaseUrl);
+            repository = new Repository();
+            //repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
         }
 
         [TearDown]
         public async Task TearDown()
         {
-            _repository.Teardown();
+            repository.Teardown();
+        }
+
+        [Test]
+        public async Task TestKeyFile()
+        {
+            FirebaseClient _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
+            var data = _firebaseClient.Child("").OnceAsync<JToken>();
+
+            string response = Newtonsoft.Json.JsonConvert.SerializeObject(data.Result);
+
+            Console.WriteLine(response);
+
+            Assert.Pass();
         }
 
         [Test]
         public async Task SubscribeUnsubscribe()
         {
             await Task.Run(() => Thread.Sleep(100));
+
+            Assert.That(repository.connected, Is.True);
+        }
+
+        [Test]
+        public async Task PullOnce()
+        {
+            string markers = repository.PullOnce("");
+            Console.WriteLine(markers);
 
             Assert.Pass();
         }
@@ -97,7 +118,7 @@ namespace realtimeTests
             while (!cancellationToken.IsCancellationRequested)
             {
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
-                string markers = _repository.WaitForUpdate(cancellationToken);
+                string markers = repository.WaitForUpdate(cancellationToken);
             }
 
             Assert.Pass();
@@ -112,7 +133,7 @@ namespace realtimeTests
             points.Add(new int[] { 596656, -119364459 });
             points.Add(new int[] { -363, -596656 });
 
-            await _repository.PutAsync(points, "bases/test_proj/config/cad_points");
+            await repository.PutAsync(points, "bases/test/config/cad_points");
         }
 
         // Seinding this way appends new data to the existing data if it isn't already there
@@ -126,7 +147,7 @@ namespace realtimeTests
                 new object[] { 319944.803, -255831.560 },
                 new object[] { -342771.081, -596656.872 },
             };
-            await _repository.PutAsync(testCadPoints, "bases/test_proj/config/cad_points");
+            await repository.PutAsync(testCadPoints, "bases/test_proj/config/cad_points");
             Console.WriteLine("Put");
 
             Assert.Pass();
@@ -137,7 +158,7 @@ namespace realtimeTests
         {
             List<int> bounding_markers = new List<int> { 0, 1, 2, 3 };
 
-            await _repository.PutAsync(bounding_markers, "global_config/bounding_markers");
+            await repository.PutAsync(bounding_markers, "global_config/bounding_markers");
             Assert.Pass();
         }
 
@@ -154,14 +175,14 @@ namespace realtimeTests
                 { "location", location }
             };
 
-            await _repository.PutAsync(tableData, "tables");
+            await repository.PutAsync(tableData, "tables");
             Assert.Pass();
         }
 
         [Test]
         public async Task SubscribePostToConfigReceieve()
         {
-            await _repository.SubscribeToNodes(new List<string> { "bases/test_base/config" });
+            repository.SetTargetNodes(new List<string> { "bases/test_base/config" });
 
             // Start a thread that waits for an update
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
@@ -185,18 +206,18 @@ namespace realtimeTests
                 {
                     { "bounding_markers", new List<int> { 0, 1, 2, 3, 4 } }
                 };
-                await _repository.PutAsync(testDict, "bases/test_base/config");
+                await repository.PutAsync(testDict, "bases/test_base/config");
                 Thread.Sleep(1000);
-                await _repository.PutAsync(newTest, "bases/test_base/config");
+                await repository.PutAsync(newTest, "bases/test_base/config");
                 Thread.Sleep(1000);
-                _repository.Delete("bases/test_base/config");
+                repository.Delete("bases/test_base/config");
             });
 
             while (!cancellationToken.IsCancellationRequested)
             {
                 Console.WriteLine("Waiting for update");
                 // This should stop after 10 seconds, otherwise the cancellation token didn't work
-                string message = _repository.WaitForUpdate(cancellationToken);
+                string message = repository.WaitForUpdate(cancellationToken);
             }
 
             Assert.Pass();
@@ -271,7 +292,7 @@ namespace realtimeTests
                 Thread.Sleep(1000);
                 await observingFolder.PostAsync(newTest);
                 Thread.Sleep(1000);
-                _repository.Delete("bases/test_base/config");
+                repository.Delete("bases/test_base/config");
             });
 
             Thread.Sleep(5000);

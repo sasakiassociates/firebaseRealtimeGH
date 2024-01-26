@@ -79,23 +79,14 @@ namespace firebaseRealtime
             DA.GetData("Key directory", ref keyDirectory);
             DA.GetData("Database URL", ref url);
 
-            // If there are a keyDirectory and url, try to authenticate locally
+            repository.SetTargetNodes(targetFolders);
+
             if (keyDirectory != "" && url != "")
             {
-                repository.Connect(keyDirectory, url);
-            }
-            else
-            {
-                // If not, check with the Credentials class
-                Credentials credentials = Credentials.GetInstance();
-                if (credentials.firebaseClient != null)
-                {
-                    repository.Register(credentials.firebaseClient);
-                }
+                repository.OverrideLocalConnection(keyDirectory, url);
             }
 
-            // Set up the listener thread if the repository is connected and the listener isn't already running
-            if (listening == false && repository.connected)
+            if (listening == false)
             {
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
@@ -103,19 +94,15 @@ namespace firebaseRealtime
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
             }
-            else
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repository is not connected, either use the Credentials component in this sketch or supply a Firebase URL and path to your data key here");
-            }
 
             DA.SetData("Incoming Data", incomingData);
         }
 
         private void ListenThread(CancellationToken cancellationToken)
         {
-
-            while (!cancellationToken.IsCancellationRequested && repository.connected)
+            while (!cancellationToken.IsCancellationRequested)
             {
+
                 incomingData = repository.WaitForUpdate(cancellationToken);
 
                 // Rerun the component
@@ -136,7 +123,6 @@ namespace firebaseRealtime
         {
             base.AppendAdditionalMenuItems(menu);
             // Add a cancel option to the menu to trigger the cancellation token
-            Menu_AppendItem(menu, "Cancel", CancelClicked);
             Menu_AppendItem(menu, "Restart Listener", RestartClicked);
         }
 
@@ -151,11 +137,6 @@ namespace firebaseRealtime
             {
                 this.ExpireSolution(true);
             });
-        }
-
-        private void CancelClicked(object sender, EventArgs e)
-        {
-            cancellationTokenSource.Cancel();
         }
 
         public override void RemovedFromDocument(GH_Document document)

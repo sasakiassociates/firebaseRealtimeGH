@@ -1,25 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Firebase.Database;
+﻿using Firebase.Database;
 using Firebase.Database.Query;
-using Firebase.Database.Streaming;
 using Google.Apis.Auth.OAuth2;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace realtimeLogic
 {
     public class Repository
     {
-        // TODO move credentials to a singelton?
-        // Might want to be able to use multiple credentials in the same sketch
-        internal FirebaseClient firebaseClient;
+        public FirebaseClient firebaseClient;
         private List<DatabaseObserver> databaseObservers = new List<DatabaseObserver>();
         public AutoResetEvent updateEvent = new AutoResetEvent(false);
+        private AutoResetEvent reloadEvent = new AutoResetEvent(false);
         public bool connected = false;
+        private Credentials credentials = Credentials.GetInstance();
 
         // Current connection data
         public string keyDirectory = "";
@@ -28,50 +26,129 @@ namespace realtimeLogic
 
         public Repository()
         {
+            // Subscribe to know when the shared credentials change
+            credentials.CredentialsChanged += OnChangedSharedConnection;
+            if (credentials.sharedDatabaseUrl != null)
+            {
+                keyDirectory = credentials.sharedKeyDirectory;
+                url = credentials.sharedDatabaseUrl;
+                ReloadConnection();
+            }
         }
 
-        public void Connect(string _pathToKeyFile, string _firebaseUrl)
+        public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl)
         {
-            // Check if anything changed
-            if (keyDirectory == _pathToKeyFile && url == _firebaseUrl)
-            {
-                return;
-            }
+            // Unsubscribe from the shared credentials
+            credentials.CredentialsChanged -= OnChangedSharedConnection;
 
-            // If the connection is already established, tear it down
-            if (connected)
-            {
-                Teardown();
-            }
+            keyDirectory = _pathToKeyFile;
+            url = _firebaseUrl;
 
-            // Try to connect
+            ReloadConnection();
+        }
+
+        public void ResubscribeToSharedCredentials()
+        {
+            // Subscribe to know when the shared credentials change
+            credentials.CredentialsChanged += OnChangedSharedConnection;
+        }
+
+        public void OnChangedSharedConnection()
+        {
+            Console.WriteLine("Credentials changed");
+
+            keyDirectory = credentials.sharedKeyDirectory;
+            url = credentials.sharedDatabaseUrl;
+
+            ReloadConnection();
+        }
+
+        public async void ReloadConnection()
+        {
+            if (connected) { Teardown(); }
+
             try
             {
-                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile)});
+                Console.WriteLine($"Connecting to Firebase at {url} using key {keyDirectory}");
+                firebaseClient = new FirebaseClient(url, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(keyDirectory), AsAccessToken = true });
                 connected = true;
+
+                if (targetNodes.Count > 0)
+                {
+                    await ReloadTargetNodeConnections();
+                }
+
+                reloadEvent.Set();
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
-
-            if (connected)
-            {
-                keyDirectory = _pathToKeyFile;
-                url = _firebaseUrl;
-            }
         }
 
-        public void Disconnect()
+        public void Teardown()
         {
+            // Unsubscribe observers
+            foreach (DatabaseObserver observer in databaseObservers)
+            {
+                observer.Unsubscribe();
+            }
+
             firebaseClient.Dispose();
+            firebaseClient = null;
             connected = false;
         }
 
-        public void Register(FirebaseClient _firebaseClient)
+        public void SetTargetNodes(List<string> _targetNodes)
         {
-            firebaseClient = _firebaseClient;
-            connected = true;
+            if (targetNodes == _targetNodes)
+            {
+                return;
+            }
+            targetNodes = _targetNodes;
+
+            if (connected)
+            {
+                _ = ReloadTargetNodeConnections();
+            }
+        }
+
+        public async Task ReloadTargetNodeConnections()
+        {
+            foreach (DatabaseObserver observer in databaseObservers)
+            {
+                observer.Unsubscribe();
+            }
+
+            databaseObservers.Clear();
+
+            foreach (string folder in targetNodes)
+            {
+                DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
+                await observer.Subscribe(updateEvent);
+                databaseObservers.Add(observer);
+            }
+        }
+
+        // TODO figure out what happens if we reload the connection while waiting for an update
+        public string WaitForUpdate(CancellationToken cancellationToken)
+        {
+            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle, reloadEvent });
+
+            string incomingData = "{";
+            foreach (DatabaseObserver observer in databaseObservers)
+            {
+                if (observer.updatedData == null)
+                {
+                    continue;
+                }
+                incomingData += "\"" + observer.folderName + "\": " + observer.updatedData;
+                // Check if this needs a comma
+                incomingData += ",\n";
+            }
+            incomingData += "}";
+
+            return incomingData;
         }
 
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
@@ -127,8 +204,6 @@ namespace realtimeLogic
                 }
             }
 
-            //Console.WriteLine(JsonConvert.SerializeObject(dataPoint));
-
             await targetFolder.PutAsync(dataPoint);
         }
 
@@ -163,54 +238,10 @@ namespace realtimeLogic
             targetFolder.Child(key).DeleteAsync();
         }
 
-        public async Task SubscribeToNodes(List<string> _targetNodes)
-        {
-            if (_targetNodes == null)
-            {
-                throw new Exception("Target folder is null");
-            }
-            foreach (string folder in _targetNodes)
-            {
-                DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
-                await observer.Subscribe(updateEvent);
-                databaseObservers.Add(observer);
-            }
-        }
 
         public string PushToProject(string folder, string json)
         {
             return firebaseClient.Child(folder).PostAsync(json).Result.Key;
-        }
-
-        public string WaitForUpdate(CancellationToken cancellationToken)
-        {
-            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
-
-            string incomingData = "{";
-            foreach (DatabaseObserver observer in databaseObservers)
-            {
-                if (observer.updatedData == null)
-                {
-                    continue;
-                }
-                incomingData += "\"" + observer.folderName + "\": " + observer.updatedData;
-                // Check if this needs a comma
-                incomingData += ",\n";
-            }
-            incomingData += "}";
-
-            return incomingData;
-        }
-
-        public void Teardown()
-        {
-            // Unsubscribe observers
-            foreach (DatabaseObserver observer in databaseObservers)
-            {
-                observer.Unsubscribe();
-            }
-
-            connected = false;
         }
 
         private async Task<string> GetAccessToken(string pathToKeyFile)
@@ -222,6 +253,34 @@ namespace realtimeLogic
 
             ITokenAccess c = credential as ITokenAccess;
             return await c.GetAccessTokenForRequestAsync();
+        }
+
+        public string PullOnce(string targetNode)
+        {
+            ChildQuery target = StringToChildQuery(targetNode);
+
+            var data = target.OnceAsync<JToken>();
+
+            string response = JsonConvert.SerializeObject(data.Result);
+            return response;
+        }
+
+        private ChildQuery StringToChildQuery(string targetNode)
+        {
+            string[] nodes = targetNode.Split('/');
+            ChildQuery target = null;
+            foreach (string node in nodes)
+            {
+                   if (target != null)
+                {
+                    target = target.Child(node);
+                }
+                else
+                {
+                    target = firebaseClient.Child(node);    
+                }
+            }
+            return target;
         }
     }
 }
