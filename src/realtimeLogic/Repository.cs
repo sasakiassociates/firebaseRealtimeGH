@@ -30,7 +30,7 @@ namespace realtimeLogic
         {
         }
 
-        public void TryAuthenticate(string _pathToKeyFile, string _firebaseUrl)
+        public void Connect(string _pathToKeyFile, string _firebaseUrl)
         {
             // Check if anything changed
             if (keyDirectory == _pathToKeyFile && url == _firebaseUrl)
@@ -53,7 +53,12 @@ namespace realtimeLogic
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
-                return;
+            }
+
+            if (connected)
+            {
+                keyDirectory = _pathToKeyFile;
+                url = _firebaseUrl;
             }
         }
 
@@ -66,6 +71,7 @@ namespace realtimeLogic
         public void Register(FirebaseClient _firebaseClient)
         {
             firebaseClient = _firebaseClient;
+            connected = true;
         }
 
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override

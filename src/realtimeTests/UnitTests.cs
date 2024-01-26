@@ -62,7 +62,7 @@ namespace realtimeTests
         public async Task Setup()
         {
             _repository = new Repository();
-            _repository.TryAuthenticate(pathToKeyFile, firebaseUrl);
+            _repository.Connect(pathToKeyFile, firebaseUrl);
             List<string> foldersToWatch = new List<string> { "bases/test_proj/marker", "bases/test_proj/config" };
             //await _repository.Setup(foldersToWatch);
         }

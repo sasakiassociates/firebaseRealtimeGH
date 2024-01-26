@@ -53,8 +53,9 @@ namespace firebaseRealtime
             // TODO make the last input optional and add a default behavior to watch the entire database
             pManager.AddTextParameter("Key directory", "K", "Key. Optional if the Repository is already connected in this sketch", GH_ParamAccess.item);
             pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
-            
+
             // Credentials can be specified here or added to the credentials component
+            pManager[0].Optional = true;
             pManager[1].Optional = true;
             pManager[2].Optional = true;
         }
@@ -78,19 +79,23 @@ namespace firebaseRealtime
             DA.GetData("Key directory", ref keyDirectory);
             DA.GetData("Database URL", ref url);
 
-            if (repository.connected == false)
+            // If there are a keyDirectory and url, try to authenticate locally
+            if (keyDirectory != "" && url != "")
             {
-                repository.TryAuthenticate(keyDirectory, url);
+                repository.Connect(keyDirectory, url);
             }
-
-            if (repository.connected == false)
+            else
             {
+                // If not, check with the Credentials class
                 Credentials credentials = Credentials.GetInstance();
-                credentials.AddRepository(repository);
+                if (credentials.firebaseClient != null)
+                {
+                    repository.Register(credentials.firebaseClient);
+                }
             }
 
-            // Set up the listener thread
-            if (listening == false)
+            // Set up the listener thread if the repository is connected and the listener isn't already running
+            if (listening == false && repository.connected)
             {
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
@@ -98,16 +103,16 @@ namespace firebaseRealtime
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
             }
+            else
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repository is not connected, either use the Credentials component in this sketch or supply a Firebase URL and path to your data key here");
+            }
 
             DA.SetData("Incoming Data", incomingData);
         }
 
         private void ListenThread(CancellationToken cancellationToken)
         {
-            if (repository.connected == false)
-            {
-                return;
-            }
 
             while (!cancellationToken.IsCancellationRequested && repository.connected)
             {

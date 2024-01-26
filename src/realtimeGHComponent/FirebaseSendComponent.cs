@@ -70,7 +70,7 @@ namespace realtimeGHComponent
 
             if (_repository.connected == false)
             {
-                _repository.TryAuthenticate(pathToKeyFile, firebaseUrl);
+                _repository.Connect(pathToKeyFile, firebaseUrl);
             }
         }
 
