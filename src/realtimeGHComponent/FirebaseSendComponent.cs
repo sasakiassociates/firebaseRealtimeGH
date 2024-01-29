@@ -20,6 +20,7 @@ namespace realtimeGHComponent
         List<string> destinations = new List<string>();
         List<object> incomingData = new List<object>();
         List<object> previousData = new List<object>();
+        List<object> dataToSend = new List<object>();
 
         /// <summary>
         /// Initializes a new instance of the SendFirebase class.
@@ -72,9 +73,25 @@ namespace realtimeGHComponent
                 _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
             }
 
-            if (incomingData != previousData)
+            dataToSend.Clear();
+
+            // Get the value from each of the objects in the incoming data
+            for (int i = 0; i < incomingData.Count; i++)
             {
-                SendData();
+                dataToSend.Add(incomingData[i].GetType().GetProperty("Value").GetValue(incomingData[i]));
+            }
+
+            if (!previousData.Equals(dataToSend))
+            {
+                try
+                {
+                    _ = SendData();
+                }
+                catch (Exception e)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Are you using the credentials component?" + e.ToString());
+                }
+                previousData = incomingData;
             }
         }
 
@@ -91,12 +108,18 @@ namespace realtimeGHComponent
             }
         }
 
-        public void SendData()
+        public async Task SendData()
         {
-            previousData = incomingData;
+            if (_repository.connected == false)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Not connected to Firebase. Are you using the credentials component?");
+                return;
+            }
+
             foreach (string destination in destinations)
             {
-                _ = _repository.PutAsync(incomingData, destination);
+                // TODO this seems to send excess information along with the data, need to figure out how to send only the data
+                await _repository.PutAsync(dataToSend, destination);
             }
         }
 

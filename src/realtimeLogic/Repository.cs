@@ -159,6 +159,10 @@ namespace realtimeLogic
                 throw new Exception("Target folder is null");
                 //await firebaseClient.Child("").PutAsync(json);
             }
+            if (firebaseClient == null)
+            {
+                throw new Exception("Firebase client is null");
+            }
             // split the target folder by the slashes
             string[] folders = _targetFolderString.Split('/');
 

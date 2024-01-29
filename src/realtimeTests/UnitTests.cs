@@ -7,6 +7,7 @@ using System.Diagnostics.Contracts;
 using Firebase.Database;
 using Firebase.Database.Query;
 using Google.Apis.Auth.OAuth2;
+using System.Drawing;
 
 namespace realtimeTests
 {
@@ -170,13 +171,32 @@ namespace realtimeTests
 
             Dictionary<string, object> tableData = new Dictionary<string, object>();
 
-            tableData[tableName] = new Dictionary<string, object>
-            {
-                { "location", location }
-            };
+            tableData["location"] = location;
 
-            await repository.PutAsync(tableData, "tables");
+            await repository.PutAsync(tableData, $"tables/{tableName}");
             Assert.Pass();
+        }
+
+        [Test]
+        public async Task SetPointData()
+        {
+            int[] point1 = new int[] { 0, 0 };
+            int[] point2 = new int[] { 100, 0 };
+            int[] point3 = new int[] { 100, 100 };
+            int[] point4 = new int[] { 0, 100 };
+
+            Dictionary<int, int[]> pointData = new Dictionary<int, int[]>();
+
+            // construct dictionary of the points
+            pointData[0] = point1;
+            pointData[1] = point2;
+            pointData[2] = point3;
+            pointData[3] = point4;
+
+            await repository.PutAsync(pointData, "tables/noguchi/points");
+
+            Assert.Pass();
+
         }
 
         [Test]
