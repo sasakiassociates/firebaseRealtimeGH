@@ -94,6 +94,10 @@ namespace realtimeLogic
                 observer.Unsubscribe();
             }
 
+            if (firebaseClient == null)
+            {
+                return;
+            }
             firebaseClient.Dispose();
             firebaseClient = null;
             connected = false;
@@ -163,22 +167,8 @@ namespace realtimeLogic
             {
                 throw new Exception("Firebase client is null");
             }
-            // split the target folder by the slashes
-            string[] folders = _targetFolderString.Split('/');
 
-            ChildQuery targetFolder = null;
-            
-            foreach (string folder in folders)
-            {
-                if (targetFolder != null)
-                {
-                    targetFolder = targetFolder.Child(folder);
-                }
-                else
-                {
-                    targetFolder = firebaseClient.Child(folder);
-                }
-            }
+            ChildQuery targetFolder = StringToChildQuery(_targetFolderString);
 
             Console.WriteLine(JsonConvert.SerializeObject(dataPoints));
 
@@ -191,22 +181,8 @@ namespace realtimeLogic
                 throw new Exception("Target folder is null");
                 //await firebaseClient.Child("").PutAsync(json);
             }
-            // split the target folder by the slashes
-            string[] folders = pathToObjectToUpdate.Split('/');
 
-            ChildQuery targetFolder = null;
-
-            foreach (string folder in folders)
-            {
-                if (targetFolder != null)
-                {
-                    targetFolder = targetFolder.Child(folder);
-                }
-                else
-                {
-                    targetFolder = firebaseClient.Child(folder);
-                }
-            }
+            ChildQuery targetFolder = StringToChildQuery(pathToObjectToUpdate);
 
             await targetFolder.PutAsync(dataPoint);
         }

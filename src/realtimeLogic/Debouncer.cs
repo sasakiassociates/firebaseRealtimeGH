@@ -40,8 +40,11 @@ namespace realtimeLogic
                 timer = new Timer((object state) =>
                 {
                     action();
-                    timer.Dispose();
-                    timer = null;
+                    if (timer != null)
+                    {
+                        timer.Dispose();
+                        timer = null;
+                    }
                 }, null, update_interval, Timeout.Infinite);
             }
         }

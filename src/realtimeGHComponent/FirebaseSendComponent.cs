@@ -61,7 +61,10 @@ namespace realtimeGHComponent
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            previousData.Clear();
             incomingData.Clear();
+            destinations.Clear();
+            dataToSend.Clear();
 
             DA.GetDataList("Data", incomingData);
             DA.GetDataList(1, destinations);
@@ -72,8 +75,6 @@ namespace realtimeGHComponent
             {
                 _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
             }
-
-            dataToSend.Clear();
 
             // Get the value from each of the objects in the incoming data
             for (int i = 0; i < incomingData.Count; i++)
@@ -116,10 +117,21 @@ namespace realtimeGHComponent
                 return;
             }
 
-            foreach (string destination in destinations)
+            if (dataToSend.Count == 1)
             {
-                // TODO this seems to send excess information along with the data, need to figure out how to send only the data
-                await _repository.PutAsync(dataToSend, destination);
+                object data = dataToSend[0];
+                foreach (string destination in destinations)
+                {
+                    await _repository.PutAsync(data, destination);
+                }
+            }
+            else
+            {
+                foreach (string destination in destinations)
+                {
+                    // TODO this seems to send excess information along with the data, need to figure out how to send only the data
+                    await _repository.PutAsync(dataToSend, destination);
+                }
             }
         }
 

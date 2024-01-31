@@ -130,7 +130,6 @@ namespace firebaseRealtime
         {
             cancellationTokenSource.Cancel();
             listening = false;
-            repository.Teardown();
 
             // Rerun the component
             Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
@@ -142,7 +141,25 @@ namespace firebaseRealtime
         public override void RemovedFromDocument(GH_Document document)
         {
             cancellationTokenSource.Cancel();
+            if (repository != null)
+            {
+                repository.Teardown();
+            }
             base.RemovedFromDocument(document);
+        }
+
+        // Run this when the document is closed
+        public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context)
+        {
+            if (context == GH_DocumentContext.Close)
+            {
+                cancellationTokenSource.Cancel();
+                if (repository != null)
+                {
+                    repository.Teardown();
+                }
+            }
+            base.DocumentContextChanged(document, context);
         }
 
         /// <summary>
