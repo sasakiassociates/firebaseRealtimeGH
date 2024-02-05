@@ -155,6 +155,14 @@ namespace realtimeLogic
             return incomingData;
         }
 
+        // TODO figure out what happens if we reload the connection while waiting for an update
+        public bool WaitForConnection(CancellationToken cancellationToken)
+        {
+            WaitHandle.WaitAny(new WaitHandle[] { reloadEvent, cancellationToken.WaitHandle });
+
+            return connected;
+        }
+
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
         public async Task PutAsync(List<object> dataPoints, string _targetFolderString)
         {

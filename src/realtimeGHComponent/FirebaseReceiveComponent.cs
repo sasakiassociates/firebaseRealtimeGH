@@ -154,10 +154,7 @@ namespace firebaseRealtime
             if (context == GH_DocumentContext.Close)
             {
                 cancellationTokenSource.Cancel();
-                if (repository != null)
-                {
-                    repository.Teardown();
-                }
+                repository.Teardown();
             }
             base.DocumentContextChanged(document, context);
         }

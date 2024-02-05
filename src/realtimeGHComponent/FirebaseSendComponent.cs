@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Grasshopper.GUI;
@@ -22,6 +23,9 @@ namespace realtimeGHComponent
         List<object> previousData = new List<object>();
         List<object> dataToSend = new List<object>();
 
+        CancellationTokenSource CancellationTokenSource;
+        CancellationToken cancellationToken;
+
         /// <summary>
         /// Initializes a new instance of the SendFirebase class.
         /// </summary>
@@ -32,6 +36,8 @@ namespace realtimeGHComponent
         {
             Attributes = new FirebaseSendAttributes(this);
             _repository = new Repository();
+            CancellationTokenSource = new CancellationTokenSource();
+            cancellationToken = CancellationTokenSource.Token;
         }
 
         /// <summary>
@@ -114,6 +120,7 @@ namespace realtimeGHComponent
             if (_repository.connected == false)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Not connected to Firebase. Are you using the credentials component?");
+                //_repository.WaitForConnection(cancellationToken);
                 return;
             }
 
@@ -174,6 +181,28 @@ namespace realtimeGHComponent
                 }
                 return base.RespondToMouseUp(sender, e);
             }
+        }
+
+        /// <summary>
+        /// Append additional menu items to the main component menu.
+        /// </summary>
+        /// <param name="document"></param>
+        public override void AppendAdditionalMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            // Add a cancel option to the menu to trigger the cancellation token
+            Menu_AppendItem(menu, "Cancel", Cancel);
+        }
+
+        public void Cancel(object sender, EventArgs e)
+        {
+            CancellationTokenSource.Cancel();
+
+            // Rerun the component
+            Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+            {
+                this.ExpireSolution(true);
+            });
         }
 
         /// <summary>
