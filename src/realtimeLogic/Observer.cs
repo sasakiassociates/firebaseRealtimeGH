@@ -2,6 +2,7 @@
 using Firebase.Database.Query;
 using Firebase.Database.Streaming;
 using LiteDB;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
@@ -104,8 +105,13 @@ namespace realtimeLogic
                     int milliseconds = int.Parse(data.Object.ToString());
                     debouncer.SetDebounceDelay(milliseconds);
                 }
+                // Ensure there are quotes around string objects
+                var settings = new JsonSerializerSettings
+                {
+                    StringEscapeHandling = StringEscapeHandling.EscapeHtml
+                };
 
-                string dataJson = Newtonsoft.Json.JsonConvert.SerializeObject(data.Object);
+                string dataJson = JsonConvert.SerializeObject(data.Object, settings);
                 Console.WriteLine($"Initial pull: {data.Key} {dataJson}");
                 ParseDatapoint(data.Key, dataJson);
             }
@@ -144,8 +150,8 @@ namespace realtimeLogic
 
         public void ParseEvent(FirebaseEvent<JToken> _firebaseEvent)
         {
-            string uuid = _firebaseEvent.Key;
-            if (uuid == null || uuid == "")
+            string key = _firebaseEvent.Key;
+            if (key == null || key == "")
             {
                 Console.WriteLine("No UUID");
                 return;
@@ -154,23 +160,23 @@ namespace realtimeLogic
             if (_firebaseEvent.EventType == FirebaseEventType.InsertOrUpdate)
             {
                 // TODO we need to get to another level down from here because it's just updating the whole folder
-                if (dataDictionary.ContainsKey(uuid))
+                if (dataDictionary.ContainsKey(key))
                 {
-                    Console.WriteLine($"Updating existing data for {uuid}");
-                    dataDictionary[uuid] = _firebaseEvent.Object.ToString();
+                    Console.WriteLine($"Updating existing data for {key}");
+                    dataDictionary[key] = _firebaseEvent.Object.ToString();
                 }
                 else
                 {
-                    Console.WriteLine($"Adding new data for {uuid}");
-                    dataDictionary.Add(uuid, _firebaseEvent.Object.ToString());
+                    Console.WriteLine($"Adding new data for {key}");
+                    dataDictionary.Add(key, _firebaseEvent.Object.ToString());
                 }
             }
             else if (_firebaseEvent.EventType == FirebaseEventType.Delete)
             {
-                if (dataDictionary.ContainsKey(uuid))
+                if (dataDictionary.ContainsKey(key))
                 {
-                    Console.WriteLine($"Deleting data for {uuid}");
-                    dataDictionary.Remove(uuid);
+                    Console.WriteLine($"Deleting data for {key}");
+                    dataDictionary.Remove(key);
                 }
             }
         }
