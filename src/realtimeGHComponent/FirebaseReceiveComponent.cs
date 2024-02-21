@@ -89,13 +89,21 @@ namespace firebaseRealtime
                 InstantiateRepository();
             }
 
-            if (!incomingTargetFolders.SequenceEqual(targetNodes) && incomingTargetFolders.Count != 0)
+            // If the incoming target folders are greater than 0, make sure there are no blank or duplicate entries
+            if (incomingTargetFolders.Count > 0)
+            {
+                incomingTargetFolders = incomingTargetFolders.Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+            }
+
+            // If the incoming target folders are different from the current target nodes, update the target nodes
+            if (!incomingTargetFolders.SequenceEqual(targetNodes))
             {
                 // This keeps running whenever a new target folder is added
                 targetNodes = incomingTargetFolders;
                 repository.SetTargetNodes(targetNodes);
             }
 
+            // If the incoming directory and url are different from the current directory and url, update the repository
             if (incomingDirectory != "" && incomingUrl != "" && incomingDirectory != keyDirectory && incomingUrl != url)
             {
                 keyDirectory = incomingDirectory;
@@ -103,6 +111,7 @@ namespace firebaseRealtime
                 repository.OverrideLocalConnection(keyDirectory, url);
             }
 
+            // If the listener thread is not running, start it
             if (listening == false)
             {
                 cancellationTokenSource = new CancellationTokenSource();

@@ -44,7 +44,11 @@ namespace realtimeLogic
             observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
-        // TODO for some reason this isn't working with the config folder (format? marker folder observer overriding something?)
+        /// <summary>
+        /// Subscribes to the database and listens for updates to the target folder
+        /// </summary>
+        /// <param name="_updateEvent"></param>
+        /// <returns></returns>
         public async Task Subscribe(AutoResetEvent _updateEvent)
         {
             updateEvent = _updateEvent;
@@ -74,20 +78,23 @@ namespace realtimeLogic
                         debouncer.SetDebounceDelay(milliseconds);
                     }
 
-                    // Debouncer starts a timer that will wait to process the updates until the timer expires
-                    // TODO this needs to be changed to allow for multiple observers to run updates
-                    debouncer.Debounce(() =>
-                    {
-                        updatedData = DictionaryToString(dataDictionary);
-                        updateEvent.Set();
-                    });
-
                     ParseEvent(_firebaseEvent);
+
+                    updatedData = DictionaryToString();
+                    updateEvent.Set();
+                    // TODO fix the Debounce function. Currently it misses updates frequently (could be Timer instantiation issue)
+                    // Debouncer starts a timer that will wait to process the updates until the timer expires
+                    /*debouncer.Debounce(() =>
+                    {
+                    });*/
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"{folderName}\"");
         }
 
+        /// <summary>
+        /// The initial pull of data from the database
+        /// </summary>
         private async void InitialPull()
         {
             var initialData = await observingFolder.OnceAsync<JToken>();
@@ -115,11 +122,14 @@ namespace realtimeLogic
                 ParseDatapoint(data.Key, dataJson);
             }
 
-            updatedData = DictionaryToString(dataDictionary);
+            updatedData = DictionaryToString();
 
             updateEvent.Set();
         }
 
+        /// <summary>
+        /// Unsubscribe from the database and remove the listener from the listeners folder
+        /// </summary>
         public void Unsubscribe()
         {
             if (subscription != null)
@@ -135,6 +145,11 @@ namespace realtimeLogic
             }
         }
 
+        /// <summary>
+        /// This method is used to parse the data from the database and store it in the dataDictionary (called in the initial pull)
+        /// </summary>
+        /// <param name="uuid"></param>
+        /// <param name="data"></param>
         public void ParseDatapoint(string uuid, string data)
         {
             if (dataDictionary.ContainsKey(uuid))
@@ -147,6 +162,10 @@ namespace realtimeLogic
             }
         }
 
+        /// <summary>
+        /// Parses the firebase event and updates the dataDictionary accordingly
+        /// </summary>
+        /// <param name="_firebaseEvent"></param>
         public void ParseEvent(FirebaseEvent<JToken> _firebaseEvent)
         {
             string key = _firebaseEvent.Key;
@@ -180,18 +199,23 @@ namespace realtimeLogic
             }
         }
 
-        private string DictionaryToString(Dictionary<string, string> dictionary)
+
+        /// <summary>
+        /// Converts the dataDictionary to a string
+        /// </summary>
+        /// <returns></returns>
+        private string DictionaryToString()
         {
-            if (dictionary.Count == 0)
+            if (dataDictionary.Count == 0)
             {
                 return null;
             }
 
             string output = "{\n";
             // TODO this enumeration gets interrupted by new data coming in, so it's not thread safe
-            foreach (var key in dictionary.Keys)
+            foreach (var key in dataDictionary.Keys)
             {
-                output += $" \"{key}\": {dictionary[key]},\n";
+                output += $" \"{key}\": {dataDictionary[key]},\n";
             }
 
             // Remove the trailing comma and newline, if any

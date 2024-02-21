@@ -1,32 +1,21 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace realtimeLogic
 {
     internal class Debouncer
     {
+        private static Debouncer instance = new Debouncer();
+        private readonly object lockObject = new object();
+        private Timer timer;
+        public int update_interval = 500;
+
         private Debouncer() { }
-        private static Debouncer instance;
+
         public static Debouncer GetInstance()
         {
-            if (instance == null)
-            {
-                lock (typeof(Debouncer))
-                {
-                    if (instance == null)
-                    {
-                        instance = new Debouncer();
-                    }
-                }
-            }
             return instance;
         }
-
-        private Timer timer;
-        public int update_interval = 200;
 
         public void SetDebounceDelay(int milliseconds)
         {
@@ -35,17 +24,24 @@ namespace realtimeLogic
 
         public void Debounce(Action action)
         {
-            if (timer == null)
+            lock (lockObject)
             {
-                timer = new Timer((object state) =>
+                if (timer != null)
                 {
-                    action();
-                    if (timer != null)
+                    timer.Change(update_interval, Timeout.Infinite);
+                }
+                else
+                {
+                    timer = new Timer(state =>
                     {
-                        timer.Dispose();
-                        timer = null;
-                    }
-                }, null, update_interval, Timeout.Infinite);
+                        lock (lockObject)
+                        {
+                            timer?.Dispose();
+                            timer = null;
+                        }
+                        action();
+                    }, null, update_interval, Timeout.Infinite);
+                }
             }
         }
     }
