@@ -196,3 +196,7 @@ firebase_table-key.json
 *.vsix
 *.vsixmanifest
 *.sln.docstates
+
+obj/
+bin/
+Properties/

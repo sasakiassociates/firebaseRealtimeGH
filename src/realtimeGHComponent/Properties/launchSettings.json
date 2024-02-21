@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "firebaseRealtime": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Program Files\\Rhino 7\\System\\Rhino.exe",
-      "commandLineArgs": "/nosplash /runscript=\"_-Runscript (Set GH = Rhino.GetPlugInObject(\"\"Grasshopper\"\")) _-Runscript (Call GH.OpenDocument(\"\"C:\\Users\\nshikada\\Desktop\\firebaseTest.gh\"\"))\""
-    }
-  }
-}
