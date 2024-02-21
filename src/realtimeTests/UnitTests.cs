@@ -53,6 +53,7 @@ namespace realtimeTests
         string firebaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
         string pathToKeyFile = @"C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json";
         Repository repository;
+        Credentials credentials = Credentials.GetInstance();
 
         string testListenerString = " \"listener\": {\"status\": \"listening\"}";
         string testMarkerChangeString = " \"1e537e37-54c0-4c64-8751-da51a6e1abf4\": { \"id\": 5, \"x\": -700, \"y\": -500, \"rotation\": 0}";
@@ -62,7 +63,7 @@ namespace realtimeTests
         [SetUp]
         public async Task Setup()
         {
-            Credentials.GetInstance().SetSharedCredentials(pathToKeyFile, firebaseUrl);
+            credentials.SetSharedCredentials(pathToKeyFile, firebaseUrl);
             repository = new Repository();
             //repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
         }
@@ -79,7 +80,7 @@ namespace realtimeTests
             FirebaseClient _firebaseClient = new FirebaseClient(firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(pathToKeyFile), AsAccessToken = true });
             var data = _firebaseClient.Child("").OnceAsync<JToken>();
 
-            string response = Newtonsoft.Json.JsonConvert.SerializeObject(data.Result);
+            string response = JsonConvert.SerializeObject(data.Result);
 
             Console.WriteLine(response);
 
@@ -329,6 +330,60 @@ namespace realtimeTests
 
             ITokenAccess c = credential as ITokenAccess;
             return await c.GetAccessTokenForRequestAsync();
+        }
+
+        [Test]
+        public void WaitForConnectionTest()
+        {
+            bool waitSuccess = false;
+            Credentials.GetInstance().EraseCredentials();
+            Repository waitingRepo = new Repository();
+
+            Assert.That(waitingRepo.connected, Is.False);
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            Action testAction = () => waitSuccess = true; Console.WriteLine("Wait successful") ;
+
+            Task.Run(() =>
+            {
+                Thread.Sleep(300);
+                waitingRepo.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
+            });
+
+            waitingRepo.WaitForConnection(cancellationToken, testAction);
+
+            Assert.That(waitSuccess, Is.True);
+
+        }
+
+        [Test]
+        public void EraseCredsTest()
+        {
+            Assert.That(Credentials.GetInstance().sharedDatabaseUrl, Is.Not.Null);
+            Assert.That(Credentials.GetInstance().sharedKeyDirectory, Is.Not.Null);
+
+            Credentials.GetInstance().EraseCredentials();
+
+            Assert.That(Credentials.GetInstance().sharedDatabaseUrl, Is.Null);
+            Assert.That(Credentials.GetInstance().sharedKeyDirectory, Is.Null);
+        }
+
+        [Test]
+        public void NoCredsTest()
+        {
+            Credentials.GetInstance().EraseCredentials();
+            Repository noCredsRepo = new Repository();
+
+            Assert.That(noCredsRepo.connected, Is.False);
+        }
+
+        [Test]
+        public async Task SetFoldersTest()
+        {
+            repository.SetTargetNodes(new List<string> { "bases/test_base/config" });
+            Thread.Sleep(1000);
+            Assert.That(repository.targetNodes, Is.EqualTo(new List<string> { "bases/test_base/config" }));
         }
     }
 }

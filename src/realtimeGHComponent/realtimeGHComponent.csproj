@@ -11,7 +11,7 @@
 	  <StartProgram>C:\Program Files\Rhino 7\System\Rhino.exe</StartProgram>
 	  <StartArguments>/nosplash /runscript="_-Runscript (
 		  Set GH = Rhino.GetPlugInObject(""Grasshopper"")
-		  Call GH.OpenDocument(""C:\Users\nshikada\Desktop\firebaseTest.gh""")
+		  Call GH.OpenDocument(""C:\Users\nshikada\Desktop\firebaseTest2.gh""")
 		  )"
 	  </StartArguments>
 	  <StartAction>Program</StartAction>

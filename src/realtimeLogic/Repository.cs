@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 
 namespace realtimeLogic
 {
+    /// <summary>
+    /// Repository class is in charge of managing the connection to the Firebase database and the data flow (is composed of DatabaseObserver objects watching individual nodes). It tries to connect upon instantiation using the shared credentials, and if they are not available, it waits for them to be provided.
+    /// </summary>
     public class Repository
     {
         public FirebaseClient firebaseClient;
@@ -17,7 +20,7 @@ namespace realtimeLogic
         public AutoResetEvent updateEvent = new AutoResetEvent(false);
         private AutoResetEvent reloadEvent = new AutoResetEvent(false);
         public bool connected = false;
-        private Credentials credentials = Credentials.GetInstance();
+        private Credentials credentials;
 
         // Current connection data
         public string keyDirectory = "";
@@ -26,9 +29,10 @@ namespace realtimeLogic
 
         public Repository()
         {
+            credentials = Credentials.GetInstance();
             // Subscribe to know when the shared credentials change
             credentials.CredentialsChanged += OnChangedSharedConnection;
-            if (credentials.sharedDatabaseUrl != null)
+            if (credentials.sharedDatabaseUrl != null && credentials.sharedKeyDirectory != null)
             {
                 keyDirectory = credentials.sharedKeyDirectory;
                 url = credentials.sharedDatabaseUrl;
@@ -36,6 +40,11 @@ namespace realtimeLogic
             }
         }
 
+        /// <summary>
+        /// Runs when local credential information is provided
+        /// </summary>
+        /// <param name="_pathToKeyFile"></param>
+        /// <param name="_firebaseUrl"></param>
         public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl)
         {
             // Unsubscribe from the shared credentials
@@ -44,18 +53,35 @@ namespace realtimeLogic
             keyDirectory = _pathToKeyFile;
             url = _firebaseUrl;
 
+            // Reload the connection
             ReloadConnection();
         }
 
+        /// <summary>
+        /// Resubscribe to the shared credentials (should be run when the local credentials were set but are no longer needed)
+        /// </summary>
         public void ResubscribeToSharedCredentials()
         {
             // Subscribe to know when the shared credentials change
             credentials.CredentialsChanged += OnChangedSharedConnection;
         }
 
+        /// <summary>
+        /// The function that gets called whenever the shared credentials change (see Credentials class)
+        /// </summary>
         public void OnChangedSharedConnection()
         {
             Console.WriteLine("Credentials changed");
+
+            if (credentials.sharedDatabaseUrl == null || credentials.sharedKeyDirectory == null)
+            {
+                return;
+            }
+
+            if (keyDirectory == credentials.sharedKeyDirectory && url == credentials.sharedDatabaseUrl)
+            {
+                return;
+            }
 
             keyDirectory = credentials.sharedKeyDirectory;
             url = credentials.sharedDatabaseUrl;
@@ -63,8 +89,12 @@ namespace realtimeLogic
             ReloadConnection();
         }
 
+        /// <summary>
+        /// Completely reloads the connection to the Firebase database
+        /// </summary>
         public async void ReloadConnection()
         {
+            // If it was already connected, disconnect
             if (connected) { Teardown(); }
 
             try
@@ -73,11 +103,9 @@ namespace realtimeLogic
                 firebaseClient = new FirebaseClient(url, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(keyDirectory), AsAccessToken = true });
                 connected = true;
 
-                if (targetNodes.Count > 0)
-                {
-                    await ReloadTargetNodeConnections();
-                }
+                await ReloadTargetNodeConnections();
 
+                // Signal that the connection has been established, signalling all the threads running WaitForConnection to perform their action
                 reloadEvent.Set();
             }
             catch (Exception e)
@@ -86,6 +114,9 @@ namespace realtimeLogic
             }
         }
 
+        /// <summary>
+        /// Run this to clean up the connection
+        /// </summary>
         public void Teardown()
         {
             // Unsubscribe observers
@@ -103,8 +134,16 @@ namespace realtimeLogic
             connected = false;
         }
 
+        /// <summary>
+        /// Sets the target nodes for the repository to observe (creates an observer object for each target node)
+        /// </summary>
+        /// <param name="_targetNodes"></param>
         public void SetTargetNodes(List<string> _targetNodes)
         {
+            if (targetNodes.Count == 0 && _targetNodes.Count == 0)
+            {
+                return;
+            }
             if (targetNodes == _targetNodes)
             {
                 return;
@@ -117,6 +156,10 @@ namespace realtimeLogic
             }
         }
 
+        /// <summary>
+        /// Reloads the connection to the target nodes by unsubscribing from the current observers and creating new ones
+        /// </summary>
+        /// <returns></returns>
         public async Task ReloadTargetNodeConnections()
         {
             foreach (DatabaseObserver observer in databaseObservers)
@@ -126,15 +169,29 @@ namespace realtimeLogic
 
             databaseObservers.Clear();
 
-            foreach (string folder in targetNodes)
+            if (targetNodes.Count == 0)
             {
-                DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
+                DatabaseObserver observer = new DatabaseObserver(firebaseClient, "");
                 await observer.Subscribe(updateEvent);
                 databaseObservers.Add(observer);
+            }
+            else
+            {
+                foreach (string folder in targetNodes)
+                {
+                    DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
+                    await observer.Subscribe(updateEvent);
+                    databaseObservers.Add(observer);
+                }
             }
         }
 
         // TODO figure out what happens if we reload the connection while waiting for an update
+        /// <summary>
+        /// Wait for an update to happen in one of the target nodes or their children
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         public string WaitForUpdate(CancellationToken cancellationToken)
         {
             WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle, reloadEvent });
@@ -156,17 +213,45 @@ namespace realtimeLogic
         }
 
         // TODO figure out what happens if we reload the connection while waiting for an update
-        public bool WaitForConnection(CancellationToken cancellationToken)
+        /// <summary>
+        /// This function subscribes the thread to wait until the Repository is connected to the Firebase database, then runs the action
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <param name="action"></param>
+        public void WaitForConnection(CancellationToken cancellationToken, Action action)
         {
+            // If we're already connected, run the action
+            if (connected)
+            {
+                action();
+                return;
+            }
+
+            // Wait for the connection to be established or for the cancellation token to be triggered
             WaitHandle.WaitAny(new WaitHandle[] { reloadEvent, cancellationToken.WaitHandle });
 
-            return connected;
+            // If the connection is established, run the action; else go back to waiting
+            if (connected)
+            {
+                action();
+            }
+            else
+            {
+                WaitForConnection(cancellationToken, action);
+            }
         }
 
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
-        public async Task PutAsync(List<object> dataPoints, string _targetFolderString)
+        /// <summary>
+        /// Updates the data in the target node using a list of data points
+        /// </summary>
+        /// <param name="dataPoints"></param>
+        /// <param name="targetNodeToUpdate"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public async Task PutAsync(List<object> dataPoints, string targetNodeToUpdate)
         {
-            if (_targetFolderString == null)
+            if (targetNodeToUpdate == null)
             {
                 throw new Exception("Target folder is null");
                 //await firebaseClient.Child("").PutAsync(json);
@@ -176,33 +261,45 @@ namespace realtimeLogic
                 throw new Exception("Firebase client is null");
             }
 
-            ChildQuery targetFolder = StringToChildQuery(_targetFolderString);
+            ChildQuery targetFolder = StringToChildQuery(targetNodeToUpdate);
 
             Console.WriteLine(JsonConvert.SerializeObject(dataPoints));
 
             await targetFolder.PutAsync(dataPoints);
         }
-        public async Task PutAsync(object dataPoint, string pathToObjectToUpdate)
+        /// <summary>
+        /// Updates the data in the target node using a single data point
+        /// </summary>
+        /// <param name="dataPoint"></param>
+        /// <param name="targetNodeToUpdate"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public async Task PutAsync(object dataPoint, string targetNodeToUpdate)
         {
-            if (pathToObjectToUpdate == null)
+            if (targetNodeToUpdate == null)
             {
                 throw new Exception("Target folder is null");
                 //await firebaseClient.Child("").PutAsync(json);
             }
 
-            ChildQuery targetFolder = StringToChildQuery(pathToObjectToUpdate);
+            ChildQuery targetFolder = StringToChildQuery(targetNodeToUpdate);
 
             await targetFolder.PutAsync(dataPoint);
         }
 
-        public void Delete(string pathToObjectToUpdate)
+        /// <summary>
+        /// Deletes the target node
+        /// </summary>
+        /// <param name="targetNodeToDelete"></param>
+        /// <exception cref="Exception"></exception>
+        public void Delete(string targetNodeToDelete)
         {
-            if (pathToObjectToUpdate == null)
+            if (targetNodeToDelete == null)
             {
                 throw new Exception("Target folder is null");
             }
             // split the target folder by the slashes
-            string[] folders = pathToObjectToUpdate.Split('/');
+            string[] folders = targetNodeToDelete.Split('/');
             // The last string is the key
             string key = folders[folders.Length - 1];
 
@@ -226,12 +323,22 @@ namespace realtimeLogic
             targetFolder.Child(key).DeleteAsync();
         }
 
-
+        /// <summary>
+        /// Posts a Json string to the target node
+        /// </summary>
+        /// <param name="folder"></param>
+        /// <param name="json"></param>
+        /// <returns></returns>
         public string PushToProject(string folder, string json)
         {
             return firebaseClient.Child(folder).PostAsync(json).Result.Key;
         }
 
+        /// <summary>
+        /// Gets the access token for the Firebase database
+        /// </summary>
+        /// <param name="pathToKeyFile"></param>
+        /// <returns></returns>
         private async Task<string> GetAccessToken(string pathToKeyFile)
         {
             var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
@@ -243,6 +350,11 @@ namespace realtimeLogic
             return await c.GetAccessTokenForRequestAsync();
         }
 
+        /// <summary>
+        /// Pulls the data from the target node once
+        /// </summary>
+        /// <param name="targetNode"></param>
+        /// <returns></returns>
         public string PullOnce(string targetNode)
         {
             ChildQuery target = StringToChildQuery(targetNode);
@@ -253,6 +365,11 @@ namespace realtimeLogic
             return response;
         }
 
+        /// <summary>
+        /// Takes in the string of the desired folder and returns a ChildQuery object pointing to that folder on Firebase
+        /// </summary>
+        /// <param name="targetNode"></param>
+        /// <returns></returns>
         private ChildQuery StringToChildQuery(string targetNode)
         {
             string[] nodes = targetNode.Split('/');

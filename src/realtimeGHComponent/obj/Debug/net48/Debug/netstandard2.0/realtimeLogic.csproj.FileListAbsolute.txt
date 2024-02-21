@@ -1,5 +1,0 @@
-C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\Debug\netstandard2.0\realtimeLogic.csproj.AssemblyReference.cache
-C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\Debug\netstandard2.0\realtimeLogic.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\Debug\netstandard2.0\realtimeLogic.AssemblyInfoInputs.cache
-C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\Debug\netstandard2.0\realtimeLogic.AssemblyInfo.cs
-C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48\Debug\netstandard2.0\realtimeLogic.csproj.CoreCompileInputs.cache

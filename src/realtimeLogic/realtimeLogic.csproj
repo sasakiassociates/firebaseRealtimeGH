@@ -9,4 +9,8 @@
     <PackageReference Include="Google.Apis.Auth" Version="1.64.0" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /y &quot;$(TargetDir)$(TargetFileName)&quot; &quot;C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\src\realtimeGHComponent\obj\Debug\net48&quot;" />
+  </Target>
+
 </Project>

@@ -12,6 +12,7 @@ using Firebase.Database.Query;
 using Google.Apis.Auth.OAuth2;
 using Newtonsoft.Json;
 using GrasshopperAsyncComponent;
+using System.Linq;
 
 namespace firebaseRealtime
 {
@@ -20,13 +21,14 @@ namespace firebaseRealtime
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
         private Repository repository;
+
         public string incomingData;
         private bool listening = false;
-        public List<string> targetFolders = new List<string>();
-
+        
+        // Inputs
+        public List<string> targetNodes = new List<string>();
         public string keyDirectory = "";
         public string url = "";
-        
 
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -40,7 +42,6 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
-            repository = new Repository();
         }
 
         /// <summary>
@@ -75,14 +76,30 @@ namespace firebaseRealtime
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            DA.GetDataList("Target Folders", targetFolders);
-            DA.GetData("Key directory", ref keyDirectory);
-            DA.GetData("Database URL", ref url);
+            List<string> incomingTargetFolders = new List<string>();
+            string incomingDirectory = "";
+            string incomingUrl = "";
 
-            repository.SetTargetNodes(targetFolders);
+            DA.GetDataList("Target Folders", incomingTargetFolders);
+            DA.GetData("Key directory", ref incomingDirectory);
+            DA.GetData("Database URL", ref incomingUrl);
 
-            if (keyDirectory != "" && url != "")
+            if (repository == null)
             {
+                InstantiateRepository();
+            }
+
+            if (!incomingTargetFolders.SequenceEqual(targetNodes) && incomingTargetFolders.Count != 0)
+            {
+                // This keeps running whenever a new target folder is added
+                targetNodes = incomingTargetFolders;
+                repository.SetTargetNodes(targetNodes);
+            }
+
+            if (incomingDirectory != "" && incomingUrl != "" && incomingDirectory != keyDirectory && incomingUrl != url)
+            {
+                keyDirectory = incomingDirectory;
+                url = incomingUrl;
                 repository.OverrideLocalConnection(keyDirectory, url);
             }
 
@@ -96,6 +113,11 @@ namespace firebaseRealtime
             }
 
             DA.SetData("Incoming Data", incomingData);
+        }
+
+        private void InstantiateRepository()
+        {
+            repository = new Repository();
         }
 
         private void ListenThread(CancellationToken cancellationToken)
@@ -153,8 +175,11 @@ namespace firebaseRealtime
         {
             if (context == GH_DocumentContext.Close)
             {
-                cancellationTokenSource.Cancel();
-                repository.Teardown();
+                if (cancellationTokenSource != null)
+                {
+                    cancellationTokenSource.Cancel();
+                    repository.Teardown();
+                }
             }
             base.DocumentContextChanged(document, context);
         }

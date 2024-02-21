@@ -1,0 +1,37 @@
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Unsubscribed from "config"
+Unsubscribed from "config"
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Unsubscribed from "config"
+Unsubscribed from "config"
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Credentials changed
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Connecting to Firebase at https://magpietable-default-rtdb.firebaseio.com/ using key C:\Users\nshikada\Documents\GitHub\firebaseRealtimeGH\keys\firebase_table-key.json
+Subscribed to "config"
+[{"Key":"bases","Object":{"listeners":{"ee4b3d3f-e228-4dd9-9b4a-898b73f4b73c":{"status":"listening"}},"test":{"config":{"cad_points":[[6542,3456],[596656,-119364459],[-363,-596656]]}},"test_base":{"config":{"listeners":{"f6d9e481-0b1d-4990-8a1d-acb00c9d49a1":{"status":"listening"}}}},"test_proj":{"config":{"cad_points":[[-543256.559,-206823.998],[119459.325,134001.313],[319944.803,-255831.56],[-342771.081,-596656.872]],"color":[255,0],"listeners":{"64831a21-1436-453f-9387-80a434e27823":{"status":"listening"}},"pixel_points":[[1015,573],[311,542],[295,132],[1044,99]],"update_interval":30},"events":{"recalculate_pixel_points":false},"flags":{"detector_state":"play","listeners":{"-Nr2MzlaWdWsWXx5n_I8":"detector"}},"marker":{"listeners":{"a1f9952c-03d0-4d39-adfa-217b4ef22871":{"status":"listening"}}}}}},{"Key":"global_config","Object":{"bounding_markers":[0,1,2,3]}},{"Key":"tables","Object":{"noguchi":{"location":"fabrication studio"}}}]

@@ -12,8 +12,13 @@ namespace realtimeLogic
         private static Credentials instance;
         public event Action CredentialsChanged;
 
+        public string sharedDatabaseUrl;
+        public string sharedKeyDirectory;
+
         private Credentials()
         {
+            sharedKeyDirectory = null;
+            sharedDatabaseUrl = null;
         }
 
         public static Credentials GetInstance()
@@ -31,15 +36,21 @@ namespace realtimeLogic
             return instance;
         }
 
-        public string sharedDatabaseUrl;
-        public string sharedKeyDirectory;
-
         public void SetSharedCredentials(string _pathToKeyFile, string _firebaseUrl)
         {
             sharedKeyDirectory = _pathToKeyFile;
             sharedDatabaseUrl = _firebaseUrl;
 
             CredentialsChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Erase the credentials from the shared variables
+        /// </summary>
+        public void EraseCredentials()
+        {
+            sharedKeyDirectory = null;
+            sharedDatabaseUrl = null;
         }
     }
 }

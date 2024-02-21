@@ -22,6 +22,7 @@ namespace realtimeGHComponent
         List<object> incomingData = new List<object>();
         List<object> previousData = new List<object>();
         List<object> dataToSend = new List<object>();
+        bool waiting = false;
 
         CancellationTokenSource CancellationTokenSource;
         CancellationToken cancellationToken;
@@ -100,6 +101,20 @@ namespace realtimeGHComponent
                 }
                 previousData = incomingData;
             }
+
+            // If the repository is not loaded, do WaitForConnection and pass a function that will reload the component when there is a connection
+            if (_repository.connected == false && waiting == false)
+            {
+                _ = Task.Run(() => OnNoConnection());
+                waiting = true;
+            }
+        }
+
+        private async Task OnNoConnection()
+        {
+            Action actionWhenConnected = () => this.ExpireSolution(true);
+            _repository.WaitForConnection(cancellationToken, actionWhenConnected);
+            waiting = false;
         }
 
         /// <summary>

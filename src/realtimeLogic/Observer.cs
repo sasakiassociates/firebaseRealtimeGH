@@ -86,7 +86,6 @@ namespace realtimeLogic
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"{folderName}\"");
-
         }
 
         private async void InitialPull()
