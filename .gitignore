@@ -200,3 +200,4 @@ firebase_table-key.json
 obj/
 bin/
 Properties/
+packages/
