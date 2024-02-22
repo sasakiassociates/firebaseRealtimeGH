@@ -80,13 +80,13 @@ namespace realtimeLogic
 
                     ParseEvent(_firebaseEvent);
 
-                    updatedData = DictionaryToString();
-                    updateEvent.Set();
                     // TODO fix the Debounce function. Currently it misses updates frequently (could be Timer instantiation issue)
                     // Debouncer starts a timer that will wait to process the updates until the timer expires
-                    /*debouncer.Debounce(() =>
+                    debouncer.Debounce(() =>
                     {
-                    });*/
+                        updatedData = DictionaryToString();
+                        updateEvent.Set();
+                    });
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"{folderName}\"");
