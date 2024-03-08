@@ -86,7 +86,7 @@ namespace firebaseRealtime
 
             if (repository == null)
             {
-                InstantiateRepository();
+                InstantiateRepository(incomingTargetFolders);
             }
 
             // If the incoming target folders are greater than 0, make sure there are no blank or duplicate entries
@@ -124,9 +124,9 @@ namespace firebaseRealtime
             DA.SetData("Incoming Data", incomingData);
         }
 
-        private void InstantiateRepository()
+        private void InstantiateRepository(List<string> incomingTargetFolders)
         {
-            repository = new Repository();
+            repository = new Repository(incomingTargetFolders);
         }
 
         private void ListenThread(CancellationToken cancellationToken)

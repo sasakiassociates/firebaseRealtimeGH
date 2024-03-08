@@ -27,8 +27,9 @@ namespace realtimeLogic
         public string url = "";
         public List<string> targetNodes = new List<string>();
 
-        public Repository()
+        public Repository(List<string> incomingTargetFolders)
         {
+            targetNodes = incomingTargetFolders;
             credentials = Credentials.GetInstance();
             // Subscribe to know when the shared credentials change
             credentials.CredentialsChanged += OnChangedSharedConnection;
@@ -184,6 +185,7 @@ namespace realtimeLogic
                     databaseObservers.Add(observer);
                 }
             }
+
         }
 
         // TODO figure out what happens if we reload the connection while waiting for an update
