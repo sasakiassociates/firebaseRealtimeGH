@@ -148,17 +148,17 @@ namespace realtimeLogic
         /// <summary>
         /// This method is used to parse the data from the database and store it in the dataDictionary (called in the initial pull)
         /// </summary>
-        /// <param name="uuid"></param>
+        /// <param name="key"></param>
         /// <param name="data"></param>
-        public void ParseDatapoint(string uuid, string data)
+        public void ParseDatapoint(string key, string data)
         {
-            if (dataDictionary.ContainsKey(uuid))
+            if (dataDictionary.ContainsKey(key))
             {
-                dataDictionary[uuid] = data;
+                dataDictionary[key] = data.ToString();
             }
             else
             {
-                dataDictionary.Add(uuid, data);
+                dataDictionary.Add(key, data.ToString());
             }
         }
 
