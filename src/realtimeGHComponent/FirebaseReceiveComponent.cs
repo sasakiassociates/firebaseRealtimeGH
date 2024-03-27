@@ -85,12 +85,6 @@ namespace firebaseRealtime
             DA.GetData("Key directory", ref incomingDirectory);
             DA.GetData("Database URL", ref incomingUrl);
 
-            // If the incoming target folders are greater than 0, make sure there are no blank or duplicate entries
-            if (incomingTargetFolders.Count > 0)
-            {
-                incomingTargetFolders = incomingTargetFolders.Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
-            }
-
             // If the incoming directory and url are different from the current directory and url, update the repository
             if (incomingDirectory != "" && incomingUrl != "" && incomingDirectory != keyDirectory && incomingUrl != url)
             {
@@ -104,6 +98,8 @@ namespace firebaseRealtime
             {
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
+
+                repository.SetTargetNodes(incomingTargetFolders);
                 
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
