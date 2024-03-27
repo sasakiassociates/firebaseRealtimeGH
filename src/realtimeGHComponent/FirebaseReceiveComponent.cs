@@ -42,6 +42,7 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
+            repository = new Repository();
         }
 
         /// <summary>
@@ -84,25 +85,6 @@ namespace firebaseRealtime
             DA.GetData("Key directory", ref incomingDirectory);
             DA.GetData("Database URL", ref incomingUrl);
 
-            if (repository == null)
-            {
-                InstantiateRepository(incomingTargetFolders);
-            }
-
-            // If the incoming target folders are greater than 0, make sure there are no blank or duplicate entries
-            if (incomingTargetFolders.Count > 0)
-            {
-                incomingTargetFolders = incomingTargetFolders.Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
-            }
-
-            // If the incoming target folders are different from the current target nodes, update the target nodes
-            if (!incomingTargetFolders.SequenceEqual(targetNodes))
-            {
-                // This keeps running whenever a new target folder is added
-                targetNodes = incomingTargetFolders;
-                repository.SetTargetNodes(targetNodes);
-            }
-
             // If the incoming directory and url are different from the current directory and url, update the repository
             if (incomingDirectory != "" && incomingUrl != "" && incomingDirectory != keyDirectory && incomingUrl != url)
             {
@@ -116,17 +98,21 @@ namespace firebaseRealtime
             {
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
+
+                repository.SetTargetNodes(incomingTargetFolders);
                 
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
             }
+            // If the incoming target folders are different from the current target nodes, update the target nodes
+            else if (!incomingTargetFolders.SequenceEqual(targetNodes))
+            {
+                // This keeps running whenever a new target folder is added
+                targetNodes = incomingTargetFolders;
+                repository.SetTargetNodes(targetNodes);
+            }
 
             DA.SetData("Incoming Data", incomingData);
-        }
-
-        private void InstantiateRepository(List<string> incomingTargetFolders)
-        {
-            repository = new Repository(incomingTargetFolders);
         }
 
         private void ListenThread(CancellationToken cancellationToken)

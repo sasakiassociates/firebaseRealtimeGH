@@ -27,9 +27,8 @@ namespace realtimeLogic
         public string url = "";
         public List<string> targetNodes = new List<string>();
 
-        public Repository(List<string> incomingTargetFolders)
+        public Repository()
         {
-            targetNodes = incomingTargetFolders;
             credentials = Credentials.GetInstance();
             // Subscribe to know when the shared credentials change
             credentials.CredentialsChanged += OnChangedSharedConnection;
@@ -37,7 +36,21 @@ namespace realtimeLogic
             {
                 keyDirectory = credentials.sharedKeyDirectory;
                 url = credentials.sharedDatabaseUrl;
-                ReloadConnection();
+                Connect();
+                //ReloadConnection();
+            }
+        }
+
+        private void Connect()
+        {
+            try
+            {
+                firebaseClient = new FirebaseClient(url, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(keyDirectory), AsAccessToken = true });
+                connected = true;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
             }
         }
 
@@ -48,12 +61,24 @@ namespace realtimeLogic
         /// <param name="_firebaseUrl"></param>
         public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl)
         {
-            // Unsubscribe from the shared credentials
-            credentials.CredentialsChanged -= OnChangedSharedConnection;
+            // If the inputs are null and we aren't subscribed to the shared credentials, resubscribe
+            if (_pathToKeyFile == null && _firebaseUrl == null)
+            {
+                if (keyDirectory == null && url == null)
+                {
+                    return;
+                }
+                ResubscribeToSharedCredentials();
+                return;
+            }
+            else
+            {
+                // Unsubscribe from the shared credentials
+                credentials.CredentialsChanged -= OnChangedSharedConnection;
 
-            keyDirectory = _pathToKeyFile;
-            url = _firebaseUrl;
-
+                keyDirectory = _pathToKeyFile;
+                url = _firebaseUrl;
+            }
             // Reload the connection
             ReloadConnection();
         }
@@ -98,21 +123,12 @@ namespace realtimeLogic
             // If it was already connected, disconnect
             if (connected) { Teardown(); }
 
-            try
-            {
-                Console.WriteLine($"Connecting to Firebase at {url} using key {keyDirectory}");
-                firebaseClient = new FirebaseClient(url, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(keyDirectory), AsAccessToken = true });
-                connected = true;
+            Connect();
 
-                await ReloadTargetNodeConnections();
+            await ReloadTargetNodeConnections();
 
-                // Signal that the connection has been established, signalling all the threads running WaitForConnection to perform their action
-                reloadEvent.Set();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
+            // Signal that the connection has been established, signalling all the threads running WaitForConnection to perform their action
+            reloadEvent.Set();
         }
 
         /// <summary>
