@@ -36,8 +36,7 @@ namespace realtimeGHComponent
               "Strategist", "Firebase")
         {
             Attributes = new FirebaseSendAttributes(this);
-            List<string> strings = new List<string>();
-            _repository = new Repository(strings);
+            _repository = new Repository();
             CancellationTokenSource = new CancellationTokenSource();
             cancellationToken = CancellationTokenSource.Token;
         }
