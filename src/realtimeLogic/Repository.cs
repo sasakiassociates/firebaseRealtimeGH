@@ -80,7 +80,14 @@ namespace realtimeLogic
                 url = _firebaseUrl;
             }
             // Reload the connection
-            ReloadConnection();
+            if (connected)
+            {
+                ReloadConnection();
+            }
+            else
+            {
+                Connect();
+            }
         }
 
         /// <summary>
@@ -157,14 +164,14 @@ namespace realtimeLogic
         /// <param name="_targetNodes"></param>
         public void SetTargetNodes(List<string> _targetNodes)
         {
-            if (targetNodes.Count == 0 && _targetNodes.Count == 0)
+            /*if (targetNodes.Count == 0 && _targetNodes.Count == 0)
             {
                 return;
             }
             if (targetNodes == _targetNodes)
             {
                 return;
-            }
+            }*/
             targetNodes = _targetNodes;
 
             if (connected)
