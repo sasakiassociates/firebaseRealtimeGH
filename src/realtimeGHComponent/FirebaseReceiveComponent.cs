@@ -100,6 +100,7 @@ namespace firebaseRealtime
                 cancellationToken = cancellationTokenSource.Token;
 
                 repository.SetTargetNodes(incomingTargetFolders);
+                repository.ReloadConnection();
                 
                 _ = Task.Run(() => ListenThread(cancellationToken));
                 listening = true;
@@ -110,6 +111,11 @@ namespace firebaseRealtime
                 // This keeps running whenever a new target folder is added
                 targetNodes = incomingTargetFolders;
                 repository.SetTargetNodes(targetNodes);
+            }
+
+            if (!repository.connected)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not connected to Firebase. Check your credentials and URL. Add the Credentials component to the sketch or provide credentials here");
             }
 
             DA.SetData("Incoming Data", incomingData);
