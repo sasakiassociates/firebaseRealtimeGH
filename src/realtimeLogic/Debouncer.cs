@@ -8,7 +8,7 @@ namespace realtimeLogic
         private static Debouncer instance = new Debouncer();
         private readonly object lockObject = new object();
         private Timer timer;
-        public int update_interval = 500;
+        public int update_interval = 33;
 
         private Debouncer() { }
 
