@@ -15,7 +15,6 @@ namespace realtimeLogic
     /// </summary>
     public class Repository
     {
-        public FirebaseClient firebaseClient;
         private List<DatabaseObserver> databaseObservers = new List<DatabaseObserver>();
         public AutoResetEvent updateEvent = new AutoResetEvent(false);
         private AutoResetEvent reloadEvent = new AutoResetEvent(false);
@@ -23,8 +22,7 @@ namespace realtimeLogic
         private Credentials credentials;
 
         // Current connection data
-        public string keyDirectory = "";
-        public string url = "";
+        public FirebaseClient firebaseClient;
         public List<string> targetNodes = new List<string>();
 
         public Repository()
@@ -32,27 +30,15 @@ namespace realtimeLogic
             credentials = Credentials.GetInstance();
             // Subscribe to know when the shared credentials change
             credentials.CredentialsChanged += OnChangedSharedConnection;
-            if (credentials.sharedDatabaseUrl != null && credentials.sharedKeyDirectory != null)
+            if (credentials.firebaseClient != null)
             {
-                keyDirectory = credentials.sharedKeyDirectory;
-                url = credentials.sharedDatabaseUrl;
-                Connect();
-                //ReloadConnection();
+                Console.WriteLine("Credentials already set");
+                firebaseClient = credentials.firebaseClient;
+                connected = true;
             }
         }
 
-        private void Connect()
-        {
-            try
-            {
-                firebaseClient = new FirebaseClient(url, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(keyDirectory), AsAccessToken = true });
-                connected = true;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-        }
+        ///////////////////////////////////////////////////////////////// SUBSCRIBING ///////////////////////////////////////////////////////////////////////////
 
         /// <summary>
         /// Runs when local credential information is provided
@@ -64,7 +50,7 @@ namespace realtimeLogic
             // If the inputs are null and we aren't subscribed to the shared credentials, resubscribe
             if (_pathToKeyFile == null && _firebaseUrl == null)
             {
-                if (keyDirectory == null && url == null)
+                if (firebaseClient == null)
                 {
                     return;
                 }
@@ -76,18 +62,11 @@ namespace realtimeLogic
                 // Unsubscribe from the shared credentials
                 credentials.CredentialsChanged -= OnChangedSharedConnection;
 
-                keyDirectory = _pathToKeyFile;
-                url = _firebaseUrl;
+                // Make a local instance of the firebase client
+                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
             }
             // Reload the connection
-            if (connected)
-            {
-                ReloadConnection();
-            }
-            else
-            {
-                Connect();
-            }
+            ReloadConnection();
         }
 
         /// <summary>
@@ -106,18 +85,19 @@ namespace realtimeLogic
         {
             Console.WriteLine("Credentials changed");
 
-            if (credentials.sharedDatabaseUrl == null || credentials.sharedKeyDirectory == null)
+            // If the shared credentials are null, don't do anything
+            if (credentials.firebaseClient == null)
             {
                 return;
             }
 
-            if (keyDirectory == credentials.sharedKeyDirectory && url == credentials.sharedDatabaseUrl)
+            // If they're the same instance, don't do anything
+            if (firebaseClient == credentials.firebaseClient)
             {
                 return;
             }
 
-            keyDirectory = credentials.sharedKeyDirectory;
-            url = credentials.sharedDatabaseUrl;
+            firebaseClient = credentials.firebaseClient;
 
             ReloadConnection();
         }
@@ -127,10 +107,6 @@ namespace realtimeLogic
         /// </summary>
         public async void ReloadConnection()
         {
-            // If it was already connected, disconnect
-            if (connected) { Teardown(); }
-
-            Connect();
 
             await ReloadTargetNodeConnections();
 
@@ -164,14 +140,6 @@ namespace realtimeLogic
         /// <param name="_targetNodes"></param>
         public void SetTargetNodes(List<string> _targetNodes)
         {
-            /*if (targetNodes.Count == 0 && _targetNodes.Count == 0)
-            {
-                return;
-            }
-            if (targetNodes == _targetNodes)
-            {
-                return;
-            }*/
             targetNodes = _targetNodes;
 
             if (connected)
@@ -195,7 +163,7 @@ namespace realtimeLogic
 
             if (targetNodes.Count == 0)
             {
-                DatabaseObserver observer = new DatabaseObserver(firebaseClient, "");
+                DatabaseObserver observer = new DatabaseObserver(firebaseClient.Child("test"));
                 await observer.Subscribe(updateEvent);
                 databaseObservers.Add(observer);
             }
@@ -203,7 +171,7 @@ namespace realtimeLogic
             {
                 foreach (string folder in targetNodes)
                 {
-                    DatabaseObserver observer = new DatabaseObserver(firebaseClient, folder);
+                    DatabaseObserver observer = new DatabaseObserver(firebaseClient.Child(folder));
                     await observer.Subscribe(updateEvent);
                     databaseObservers.Add(observer);
                 }
@@ -265,6 +233,8 @@ namespace realtimeLogic
                 WaitForConnection(cancellationToken, action);
             }
         }
+
+        ///////////////////////////////////////////////////////////////// SENDING ///////////////////////////////////////////////////////////////////////////
 
         // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
         /// <summary>

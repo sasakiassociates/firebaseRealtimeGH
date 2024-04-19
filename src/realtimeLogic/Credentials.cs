@@ -1,4 +1,5 @@
 ﻿using Firebase.Database;
+using Firebase.Database.Query;
 using Google.Apis.Auth.OAuth2;
 using System;
 using System.Collections.Generic;
@@ -12,8 +13,12 @@ namespace realtimeLogic
         private static Credentials instance;
         public event Action CredentialsChanged;
 
+        // TODO delete these and change the implementation in the Repository
         public string sharedDatabaseUrl;
         public string sharedKeyDirectory;
+
+        public FirebaseClient firebaseClient;
+        public ChildQuery baseChildQuery;
 
         private Credentials()
         {
@@ -36,12 +41,29 @@ namespace realtimeLogic
             return instance;
         }
 
-        public void SetSharedCredentials(string _pathToKeyFile, string _firebaseUrl)
+        public void SetSharedCredentials(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
         {
-            sharedKeyDirectory = _pathToKeyFile;
-            sharedDatabaseUrl = _firebaseUrl;
+            firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+
+            baseChildQuery = firebaseClient.Child(basePath);
 
             CredentialsChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Gets the access token for the Firebase database
+        /// </summary>
+        /// <param name="pathToKeyFile"></param>
+        /// <returns></returns>
+        private async Task<string> GetAccessToken(string pathToKeyFile)
+        {
+            var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/firebase.database"
+            });
+
+            ITokenAccess c = credential as ITokenAccess;
+            return await c.GetAccessTokenForRequestAsync();
         }
 
         /// <summary>

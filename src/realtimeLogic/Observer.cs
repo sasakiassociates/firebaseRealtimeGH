@@ -20,7 +20,6 @@ namespace realtimeLogic
     /// </summary>
     public class DatabaseObserver
     {
-        ChildQuery observingFolder;
         IDisposable subscription;
         public string folderName;
         string observerId = Guid.NewGuid().ToString();
@@ -28,19 +27,18 @@ namespace realtimeLogic
         private Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
         public string updatedData;
         AutoResetEvent updateEvent;
-        FirebaseClient firebaseClient;
+        ChildQuery observingFolder;
 
         Debouncer debouncer = Debouncer.GetInstance();
 
-        public DatabaseObserver(FirebaseClient _firebaseClient, string targetFolder) 
+        public DatabaseObserver(ChildQuery _observingFolder) 
         { 
-            firebaseClient = _firebaseClient;
+            observingFolder = _observingFolder;
             // folder name is the last part of the target folder string
-            foreach (string folder in targetFolder.Split('/'))
+            /*foreach (string folder in targetFolder.Split('/'))
             {
                 folderName = folder;
-            }
-            observingFolder = StringToFolder(targetFolder);
+            }*/
             observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
@@ -226,31 +224,6 @@ namespace realtimeLogic
             output += "}";
 
             return output;
-        }
-
-        /// <summary>
-        /// Takes in the string of the desired folder and returns a ChildQuery object pointing to that folder on Firebase
-        /// </summary>
-        /// <param name="folder"></param>
-        /// <returns></returns>
-        private ChildQuery StringToFolder(string targetFolder)
-        {
-            // Separate string into parent and child folders by splitting at the last slash
-            // "parent/child/folder1" -> ["parent", "child", "folder1"]
-            string[] folderArray = targetFolder.Split('/');
-            ChildQuery folderQuery = null;
-            foreach (string folderName in folderArray)
-            {
-                if (folderQuery == null)
-                {
-                    folderQuery = firebaseClient.Child(folderName);
-                }
-                else
-                {
-                    folderQuery = folderQuery.Child(folderName);
-                }
-            }
-            return folderQuery;
         }
     }
 }
