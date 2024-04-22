@@ -13,17 +13,11 @@ namespace realtimeLogic
         private static Credentials instance;
         public event Action CredentialsChanged;
 
-        // TODO delete these and change the implementation in the Repository
-        public string sharedDatabaseUrl;
-        public string sharedKeyDirectory;
-
         public FirebaseClient firebaseClient;
         public ChildQuery baseChildQuery;
 
         private Credentials()
         {
-            sharedKeyDirectory = null;
-            sharedDatabaseUrl = null;
         }
 
         public static Credentials GetInstance()
@@ -55,7 +49,7 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="pathToKeyFile"></param>
         /// <returns></returns>
-        private async Task<string> GetAccessToken(string pathToKeyFile)
+        protected static async Task<string> GetAccessToken(string pathToKeyFile)
         {
             var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
                 "https://www.googleapis.com/auth/userinfo.email",
@@ -71,8 +65,7 @@ namespace realtimeLogic
         /// </summary>
         public void EraseCredentials()
         {
-            sharedKeyDirectory = null;
-            sharedDatabaseUrl = null;
+            firebaseClient = null;
         }
     }
 }

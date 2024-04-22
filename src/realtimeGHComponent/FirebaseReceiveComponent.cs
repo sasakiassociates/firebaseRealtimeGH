@@ -42,7 +42,9 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
-            repository = new Repository();
+            cancellationTokenSource = new CancellationTokenSource();
+            cancellationToken = cancellationTokenSource.Token;
+            repository = new Repository(cancellationToken);
         }
 
         /// <summary>
@@ -126,7 +128,7 @@ namespace firebaseRealtime
             while (!cancellationToken.IsCancellationRequested)
             {
 
-                incomingData = repository.WaitForUpdate(cancellationToken);
+                incomingData = repository.WaitForUpdate();
 
                 // Rerun the component
                 Rhino.RhinoApp.InvokeOnUiThread((Action)delegate

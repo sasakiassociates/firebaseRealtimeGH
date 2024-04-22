@@ -30,7 +30,7 @@ namespace realtimeLogic
         public FirebaseClient firebaseClient;
         public List<string> targetNodes = new List<string>();
 
-        public Repository()
+        public Repository(CancellationToken _cancellationToken)
         {
             credentials = Credentials.GetInstance();
             // Subscribe to know when the shared credentials change
@@ -41,6 +41,7 @@ namespace realtimeLogic
                 firebaseClient = credentials.firebaseClient;
                 connected = true;
             }
+            CancellationToken = _cancellationToken;
         }
 
         ///////////////////////////////////////////////////////////////// SUBSCRIBING ///////////////////////////////////////////////////////////////////////////
@@ -183,7 +184,7 @@ namespace realtimeLogic
 
             if (targetNodes.Count == 0)
             {
-                DatabaseObserver observer = new DatabaseObserver(firebaseClient.Child("test"));
+                DatabaseObserver observer = new DatabaseObserver(firebaseClient.Child(""));
                 await observer.Subscribe(updateEvent);
                 databaseObservers.Add(observer);
             }
@@ -205,9 +206,9 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public string WaitForUpdate(CancellationToken cancellationToken)
+        public string WaitForUpdate()
         {
-            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle, reloadEvent });
+            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, CancellationToken.WaitHandle, reloadEvent });
 
             string incomingData = "{";
             foreach (DatabaseObserver observer in databaseObservers)
@@ -231,7 +232,7 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <param name="action"></param>
-        public void WaitForConnection(CancellationToken cancellationToken, Action action)
+        public void WaitForConnection(Action action)
         {
             // If we're already connected, run the action
             if (connected)
@@ -241,7 +242,7 @@ namespace realtimeLogic
             }
 
             // Wait for the connection to be established or for the cancellation token to be triggered
-            WaitHandle.WaitAny(new WaitHandle[] { reloadEvent, cancellationToken.WaitHandle });
+            WaitHandle.WaitAny(new WaitHandle[] { reloadEvent, CancellationToken.WaitHandle });
 
             // If the connection is established, run the action; else go back to waiting
             if (connected)
@@ -250,7 +251,7 @@ namespace realtimeLogic
             }
             else
             {
-                WaitForConnection(cancellationToken, action);
+                WaitForConnection(action);
             }
         }
 

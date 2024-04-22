@@ -36,7 +36,7 @@ namespace realtimeGHComponent
               "Strategist", "Firebase")
         {
             Attributes = new FirebaseSendAttributes(this);
-            _repository = new Repository();
+            _repository = new Repository(cancellationToken);
             CancellationTokenSource = new CancellationTokenSource();
             cancellationToken = CancellationTokenSource.Token;
         }
@@ -113,7 +113,7 @@ namespace realtimeGHComponent
         private async Task OnNoConnection()
         {
             Action actionWhenConnected = () => this.ExpireSolution(true);
-            _repository.WaitForConnection(cancellationToken, actionWhenConnected);
+            _repository.WaitForConnection(actionWhenConnected);
             waiting = false;
         }
 
