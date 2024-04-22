@@ -22,11 +22,11 @@ namespace realtimeLogic
     {
         IDisposable subscription;
         public string folderName;
+        public Action callback;
         string observerId = Guid.NewGuid().ToString();
         string observerDataJson;
         private Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
         public string updatedData;
-        AutoResetEvent updateEvent;
         ChildQuery observingFolder;
 
         Debouncer debouncer = Debouncer.GetInstance();
@@ -34,11 +34,6 @@ namespace realtimeLogic
         public DatabaseObserver(ChildQuery _observingFolder) 
         { 
             observingFolder = _observingFolder;
-            // folder name is the last part of the target folder string
-            /*foreach (string folder in targetFolder.Split('/'))
-            {
-                folderName = folder;
-            }*/
             observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
@@ -47,14 +42,12 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="_updateEvent"></param>
         /// <returns></returns>
-        public async Task Subscribe(AutoResetEvent _updateEvent)
+        public async Task Subscribe(Action callback)
         {
-            updateEvent = _updateEvent;
+            this.callback = callback;
             // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is data in the folder)
             await observingFolder.Child("listeners").PutAsync(observerDataJson);
             
-            InitialPull();
-
             subscription = observingFolder
                 .AsObservable<JToken>()
                 .Subscribe(_firebaseEvent =>
@@ -83,7 +76,7 @@ namespace realtimeLogic
                     debouncer.Debounce(() =>
                     {
                         updatedData = DictionaryToString();
-                        updateEvent.Set();
+                        callback();
                     });
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
@@ -91,49 +84,14 @@ namespace realtimeLogic
         }
 
         /// <summary>
-        /// The initial pull of data from the database
-        /// </summary>
-        private async void InitialPull()
-        {
-            var initialData = await observingFolder.OnceAsync<JToken>();
-
-            foreach (var data in initialData)
-            {
-                if (data.Key == "listeners")
-                {
-                    continue;
-                }
-                if (data.Key == "update_interval")
-                {
-                    Console.WriteLine("Update interval changed");
-                    int milliseconds = int.Parse(data.Object.ToString());
-                    debouncer.SetDebounceDelay(milliseconds);
-                }
-                // Ensure there are quotes around string objects
-                var settings = new JsonSerializerSettings
-                {
-                    StringEscapeHandling = StringEscapeHandling.EscapeHtml
-                };
-
-                string dataJson = JsonConvert.SerializeObject(data.Object, settings);
-                Console.WriteLine($"Initial pull: {data.Key} {dataJson}");
-                ParseDatapoint(data.Key, dataJson);
-            }
-
-            updatedData = DictionaryToString();
-
-            updateEvent.Set();
-        }
-
-        /// <summary>
         /// Unsubscribe from the database and remove the listener from the listeners folder
         /// </summary>
-        public void Unsubscribe()
+        public async Task Unsubscribe()
         {
             if (subscription != null)
             {
                 subscription.Dispose();
-                _ = observingFolder.Child("listeners").Child(observerId).DeleteAsync();
+                await observingFolder.Child("listeners").Child(observerId).DeleteAsync();
                 Console.WriteLine($"Unsubscribed from \"{folderName}\"");
             }
             else
@@ -196,7 +154,6 @@ namespace realtimeLogic
                 }
             }
         }
-
 
         /// <summary>
         /// Converts the dataDictionary to a string

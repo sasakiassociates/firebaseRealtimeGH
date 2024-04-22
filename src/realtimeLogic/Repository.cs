@@ -1,407 +1,203 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
-using Google.Apis.Auth.OAuth2;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Reactive;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace realtimeLogic
 {
-    /// <summary>
-    /// Repository class is in charge of managing the connection to the Firebase database and the data flow (is composed of DatabaseObserver objects watching individual nodes). It tries to connect upon instantiation using the shared credentials, and if they are not available, it waits for them to be provided.
-    /// </summary>
     public class Repository
     {
-        private List<DatabaseObserver> databaseObservers = new List<DatabaseObserver>();
-        public AutoResetEvent updateEvent = new AutoResetEvent(false);
-        private AutoResetEvent reloadEvent = new AutoResetEvent(false);
-        public bool connected = false;
-        private Credentials credentials;
-        public CancellationToken CancellationToken { get; set; }
+        private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
+        public ChildQuery baseQuery;                                                // Instance of the client to communicate with Firebase 
 
-        // TEMP delete the data locally every now and then as a workaround to the ghosting issue
-        private int reloadInterval = 30000;
-        private Task reloadThread;
+        List<RepoObserver> observers = new List<RepoObserver>();
 
-        // Current connection data
-        public FirebaseClient firebaseClient;
-        public List<string> targetNodes = new List<string>();
+        IDisposable subscription;                                                   // Subscription to the database
+        public bool authorized = false;                                             // Whether the user is authorized to access the database
+        public ChildQuery observingFolder;                                                 // The folder in the database that we are observing
+        string subscriptionId;
+        private Dictionary<string, string> databaseDictionary = new Dictionary<string, string>();
+        public string updatedData;
+        private Debouncer debouncer = Debouncer.GetInstance();
+        public Action callback { get; set; }
+        string targetNode;
 
-        public Repository(CancellationToken _cancellationToken)
+
+        public Repository()
         {
-            credentials = Credentials.GetInstance();
-            // Subscribe to know when the shared credentials change
-            credentials.CredentialsChanged += OnChangedSharedConnection;
-            if (credentials.firebaseClient != null)
+            _credentials = Credentials.GetInstance();
+            _credentials.CredentialsChanged += OnCredentialsChanged;
+            if (_credentials.baseChildQuery != null)
             {
-                Console.WriteLine("Credentials already set");
-                firebaseClient = credentials.firebaseClient;
-                connected = true;
-            }
-            CancellationToken = _cancellationToken;
-        }
-
-        ///////////////////////////////////////////////////////////////// SUBSCRIBING ///////////////////////////////////////////////////////////////////////////
-
-        private async void ReloadConnection(CancellationToken cancellationToken)
-        {
-            while (connected && !cancellationToken.IsCancellationRequested)
-            {
-                await Task.Delay(reloadInterval);
-                ReloadConnection();
+                baseQuery = _credentials.baseChildQuery;
+                authorized = true;
             }
         }
 
         /// <summary>
-        /// Runs when local credential information is provided
+        /// Makes a subscription to the database and listens for updates to the target folder. You can set callback functions on this class to run when the data is updated.
+        /// </summary>
+        /// <param name="targetNodes"></param>
+        /// <returns></returns>
+        public async Task Subscribe(string targetNode)
+        {
+            this.targetNode = targetNode;
+
+            subscriptionId = Guid.NewGuid().ToString();
+            observingFolder = baseQuery.Child(targetNode);
+
+            await observingFolder.Child("listener").PutAsync($"{{\"{subscriptionId}\": {{\"status\" : \"listening\"}}}}");
+
+            // Subscribe to the database with the given callback called whenever an update event is triggered
+            subscription = observingFolder.AsObservable<string>().Subscribe(_firebaseEvent =>
+            {
+                Console.WriteLine($"Received event: {_firebaseEvent.EventType} {targetNode} {_firebaseEvent.Key} {_firebaseEvent.Object}");
+                // Use the key (e.g., object ID) to identify each object
+                string objectId = _firebaseEvent.Key;
+                string data = _firebaseEvent.Object;
+
+                // TODO find a better way to handle these cases
+                if (_firebaseEvent.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
+                {
+                    databaseDictionary[objectId] = data;
+                }
+                else if (_firebaseEvent.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
+                {
+                    databaseDictionary.Remove(objectId);
+                }
+
+                debouncer.Debounce(() =>
+                {
+                    updatedData = DatabaseToString();
+                    if (callback != null)
+                    {
+                        callback();
+                    }
+                });
+            });
+            Console.WriteLine($"Subscribed to {targetNode}");
+        }
+
+        public async Task ReloadSubscription()
+        {
+            await Unsubscribe();
+            await Subscribe(targetNode);
+        }
+
+        private string DatabaseToString()
+        {
+            if (databaseDictionary.Count == 0)
+            {
+                return null;
+            }
+
+            string output = "{\n";
+            // TODO this enumeration gets interrupted by new data coming in, so it's not thread safe
+            foreach (var key in databaseDictionary.Keys)
+            {
+                output += $" \"{key}\": {databaseDictionary[key]},\n";
+            }
+
+            // Remove the trailing comma and newline, if any
+            if (output.EndsWith(",\n"))
+            {
+                output = output.Substring(0, output.Length - 2) + "\n";
+            }
+            output += "}";
+
+            return output;
+        }
+
+        /// <summary>
+        /// Unsubscribes from the database. If there is no subscription, this does nothing.
+        /// </summary>
+        /// <returns></returns>
+        public async Task Unsubscribe()
+        {
+            if (subscription == null)
+            {
+                Console.WriteLine("No subscription to unsubscribe from");
+                return;
+            }
+            subscription?.Dispose();
+            await observingFolder.Child($"listener/{subscriptionId}").DeleteAsync();
+            Console.WriteLine("Unsubscribed from the database");
+        }
+
+        /// <summary>
+        /// Override the shared connections on this Repository with the given path to the key file and Firebase URL
         /// </summary>
         /// <param name="_pathToKeyFile"></param>
         /// <param name="_firebaseUrl"></param>
-        public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl)
+        /// <param name="basePath"></param>
+        /// <returns></returns>
+        public async Task OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
         {
-            // If the inputs are null and we aren't subscribed to the shared credentials, resubscribe
+            authorized = false;
             if (_pathToKeyFile == null && _firebaseUrl == null)
             {
-                if (firebaseClient == null)
+                // Resubscribe to the shared credentials
+                _credentials.CredentialsChanged += OnCredentialsChanged;
+
+                if (_credentials.baseChildQuery != null)
                 {
-                    return;
+                    baseQuery = _credentials.baseChildQuery;
+                    authorized = true;
                 }
-                ResubscribeToSharedCredentials();
                 return;
             }
             else
             {
-                // Unsubscribe from the shared credentials
-                credentials.CredentialsChanged -= OnChangedSharedConnection;
+                _credentials.CredentialsChanged -= OnCredentialsChanged;
 
-                // Make a local instance of the firebase client
-                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => Credentials.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                baseQuery = newClient.Child(basePath);
+                authorized = true;
             }
-            // Reload the connection
-            ReloadConnection();
+
+            await ReloadSubscription();
         }
 
         /// <summary>
-        /// Resubscribe to the shared credentials (should be run when the local credentials were set but are no longer needed)
+        /// Deletes the specified node from the database
         /// </summary>
-        public void ResubscribeToSharedCredentials()
-        {
-            // Subscribe to know when the shared credentials change
-            credentials.CredentialsChanged += OnChangedSharedConnection;
-        }
-
-        /// <summary>
-        /// The function that gets called whenever the shared credentials change (see Credentials class)
-        /// </summary>
-        public void OnChangedSharedConnection()
-        {
-            Console.WriteLine("Credentials changed");
-
-            // If the shared credentials are null, don't do anything
-            if (credentials.firebaseClient == null)
-            {
-                return;
-            }
-
-            // If they're the same instance, don't do anything
-            if (firebaseClient == credentials.firebaseClient)
-            {
-                return;
-            }
-
-            firebaseClient = credentials.firebaseClient;
-
-            ReloadConnection();
-        }
-
-        /// <summary>
-        /// Completely reloads the connection to the Firebase database
-        /// </summary>
-        public async void ReloadConnection()
-        {
-
-            await ReloadTargetNodeConnections();
-
-            // Signal that the connection has been established, signalling all the threads running WaitForConnection to perform their action
-            reloadEvent.Set();
-        }
-
-        /// <summary>
-        /// Run this to clean up the connection
-        /// </summary>
-        public void Teardown()
-        {
-            // Unsubscribe observers
-            foreach (DatabaseObserver observer in databaseObservers)
-            {
-                observer.Unsubscribe();
-            }
-
-            if (firebaseClient == null)
-            {
-                return;
-            }
-            firebaseClient.Dispose();
-            firebaseClient = null;
-            connected = false;
-        }
-
-        /// <summary>
-        /// Sets the target nodes for the repository to observe (creates an observer object for each target node)
-        /// </summary>
-        /// <param name="_targetNodes"></param>
-        public void SetTargetNodes(List<string> _targetNodes)
-        {
-            targetNodes = _targetNodes;
-
-            if (connected)
-            {
-                _ = ReloadTargetNodeConnections();
-            }
-        }
-
-        /// <summary>
-        /// Reloads the connection to the target nodes by unsubscribing from the current observers and creating new ones
-        /// </summary>
+        /// <param name="node"></param>
         /// <returns></returns>
-        public async Task ReloadTargetNodeConnections()
+        public async Task DeleteNode(string node)
         {
-            foreach (DatabaseObserver observer in databaseObservers)
-            {
-                observer.Unsubscribe();
-            }
-
-            databaseObservers.Clear();
-
-            if (reloadThread == null)
-            {
-                // Start the reload thread that will reload the connection every reloadInterval milliseconds (to avoid ghosting)
-                reloadThread = Task.Run(() => ReloadConnection(CancellationToken));
-            }
-
-            if (targetNodes.Count == 0)
-            {
-                DatabaseObserver observer = new DatabaseObserver(firebaseClient.Child(""));
-                await observer.Subscribe(updateEvent);
-                databaseObservers.Add(observer);
-            }
-            else
-            {
-                foreach (string folder in targetNodes)
-                {
-                    DatabaseObserver observer = new DatabaseObserver(firebaseClient.Child(folder));
-                    await observer.Subscribe(updateEvent);
-                    databaseObservers.Add(observer);
-                }
-            }
-
+            await baseQuery.Child(node).DeleteAsync();
         }
 
-        // TODO figure out what happens if we reload the connection while waiting for an update
         /// <summary>
-        /// Wait for an update to happen in one of the target nodes or their children
+        /// Puts the given data into the specified destination in the database
         /// </summary>
-        /// <param name="cancellationToken"></param>
+        /// <param name="data"></param>
+        /// <param name="destination"></param>
         /// <returns></returns>
-        public string WaitForUpdate()
+        public async Task PutAsync(object data, string destination)
         {
-            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, CancellationToken.WaitHandle, reloadEvent });
-
-            string incomingData = "{";
-            foreach (DatabaseObserver observer in databaseObservers)
-            {
-                if (observer.updatedData == null)
-                {
-                    continue;
-                }
-                incomingData += "\"" + observer.folderName + "\": " + observer.updatedData;
-                // Check if this needs a comma
-                incomingData += ",\n";
-            }
-            incomingData += "}";
-
-            return incomingData;
-        }
-
-        // TODO figure out what happens if we reload the connection while waiting for an update
-        /// <summary>
-        /// This function subscribes the thread to wait until the Repository is connected to the Firebase database, then runs the action
-        /// </summary>
-        /// <param name="cancellationToken"></param>
-        /// <param name="action"></param>
-        public void WaitForConnection(Action action)
-        {
-            // If we're already connected, run the action
-            if (connected)
-            {
-                action();
-                return;
-            }
-
-            // Wait for the connection to be established or for the cancellation token to be triggered
-            WaitHandle.WaitAny(new WaitHandle[] { reloadEvent, CancellationToken.WaitHandle });
-
-            // If the connection is established, run the action; else go back to waiting
-            if (connected)
-            {
-                action();
-            }
-            else
-            {
-                WaitForConnection(action);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////// SENDING ///////////////////////////////////////////////////////////////////////////
-
-        // TODO whenever the updated datapoint matches the previous, it creates a new key in the database, but we want it to override
-        /// <summary>
-        /// Updates the data in the target node using a list of data points
-        /// </summary>
-        /// <param name="dataPoints"></param>
-        /// <param name="targetNodeToUpdate"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        public async Task PutAsync(List<object> dataPoints, string targetNodeToUpdate)
-        {
-            if (targetNodeToUpdate == null)
-            {
-                throw new Exception("Target folder is null");
-                //await firebaseClient.Child("").PutAsync(json);
-            }
-            if (firebaseClient == null)
-            {
-                throw new Exception("Firebase client is null");
-            }
-
-            ChildQuery targetFolder = StringToChildQuery(targetNodeToUpdate);
-
-            Console.WriteLine(JsonConvert.SerializeObject(dataPoints));
-
-            await targetFolder.PutAsync(dataPoints);
-        }
-        /// <summary>
-        /// Updates the data in the target node using a single data point
-        /// </summary>
-        /// <param name="dataPoint"></param>
-        /// <param name="targetNodeToUpdate"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        public async Task PutAsync(object dataPoint, string targetNodeToUpdate)
-        {
-            if (targetNodeToUpdate == null)
-            {
-                throw new Exception("Target folder is null");
-                //await firebaseClient.Child("").PutAsync(json);
-            }
-
-            ChildQuery targetFolder = StringToChildQuery(targetNodeToUpdate);
-
-            await targetFolder.PutAsync(dataPoint);
+            await baseQuery.Child(destination).PutAsync(data);
         }
 
         /// <summary>
-        /// Deletes the target node
+        /// Does a one time pull of data from the database at the specified destination
         /// </summary>
-        /// <param name="targetNodeToDelete"></param>
-        /// <exception cref="Exception"></exception>
-        public void Delete(string targetNodeToDelete)
+        /// <param name="destination"></param>
+        public void PullData(string destination)
         {
-            if (targetNodeToDelete == null)
-            {
-                throw new Exception("Target folder is null");
-            }
-            // split the target folder by the slashes
-            string[] folders = targetNodeToDelete.Split('/');
-            // The last string is the key
-            string key = folders[folders.Length - 1];
-
-            // Get rid of the key from the folders list
-            Array.Resize(ref folders, folders.Length - 1);
-
-            ChildQuery targetFolder = null;
-
-            foreach (string folder in folders)
-            {
-                if (targetFolder != null)
-                {
-                    targetFolder = targetFolder.Child(folder);
-                }
-                else
-                {
-                    targetFolder = firebaseClient.Child(folder);
-                }
-            }
-
-            targetFolder.Child(key).DeleteAsync();
+            throw new NotImplementedException();
         }
 
         /// <summary>
-        /// Posts a Json string to the target node
+        /// Runs whenever the Credentials class fires the CredentialsChanged event. We need to set the baseQuery to the new credentials and recreate the observers if we have any.
         /// </summary>
-        /// <param name="folder"></param>
-        /// <param name="json"></param>
-        /// <returns></returns>
-        public string PushToProject(string folder, string json)
+        /// <exception cref="NotImplementedException"></exception>
+        public void OnCredentialsChanged()
         {
-            return firebaseClient.Child(folder).PostAsync(json).Result.Key;
-        }
-
-        /// <summary>
-        /// Gets the access token for the Firebase database
-        /// </summary>
-        /// <param name="pathToKeyFile"></param>
-        /// <returns></returns>
-        private async Task<string> GetAccessToken(string pathToKeyFile)
-        {
-            var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
-                "https://www.googleapis.com/auth/userinfo.email",
-                "https://www.googleapis.com/auth/firebase.database"
-            });
-
-            ITokenAccess c = credential as ITokenAccess;
-            return await c.GetAccessTokenForRequestAsync();
-        }
-
-        /// <summary>
-        /// Pulls the data from the target node once
-        /// </summary>
-        /// <param name="targetNode"></param>
-        /// <returns></returns>
-        public string PullOnce(string targetNode)
-        {
-            ChildQuery target = StringToChildQuery(targetNode);
-
-            var data = target.OnceAsync<JToken>();
-
-            string response = JsonConvert.SerializeObject(data.Result);
-            return response;
-        }
-
-        /// <summary>
-        /// Takes in the string of the desired folder and returns a ChildQuery object pointing to that folder on Firebase
-        /// </summary>
-        /// <param name="targetNode"></param>
-        /// <returns></returns>
-        private ChildQuery StringToChildQuery(string targetNode)
-        {
-            string[] nodes = targetNode.Split('/');
-            ChildQuery target = null;
-            foreach (string node in nodes)
-            {
-                   if (target != null)
-                {
-                    target = target.Child(node);
-                }
-                else
-                {
-                    target = firebaseClient.Child(node);    
-                }
-            }
-            return target;
+            baseQuery = _credentials.baseChildQuery;
         }
     }
 }

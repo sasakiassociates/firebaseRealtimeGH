@@ -11,9 +11,10 @@ namespace realtimeLogic
     public class Credentials
     {
         private static Credentials instance;
-        public event Action CredentialsChanged;
-
+        // TODO make this private
         public FirebaseClient firebaseClient;
+
+        public event Action CredentialsChanged;
         public ChildQuery baseChildQuery;
 
         private Credentials()
@@ -49,7 +50,7 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="pathToKeyFile"></param>
         /// <returns></returns>
-        protected static async Task<string> GetAccessToken(string pathToKeyFile)
+        public static async Task<string> GetAccessToken(string pathToKeyFile)
         {
             var credential = GoogleCredential.FromFile(pathToKeyFile).CreateScoped(new string[] {
                 "https://www.googleapis.com/auth/userinfo.email",

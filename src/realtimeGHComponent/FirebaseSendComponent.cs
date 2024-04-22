@@ -36,7 +36,7 @@ namespace realtimeGHComponent
               "Strategist", "Firebase")
         {
             Attributes = new FirebaseSendAttributes(this);
-            _repository = new Repository(cancellationToken);
+            _repository = new Repository();
             CancellationTokenSource = new CancellationTokenSource();
             cancellationToken = CancellationTokenSource.Token;
         }
@@ -80,7 +80,7 @@ namespace realtimeGHComponent
 
             if (pathToKeyFile != null && firebaseUrl != null)
             {
-                _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
+                _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl).Wait();
             }
 
             // Get the value from each of the objects in the incoming data
@@ -101,20 +101,6 @@ namespace realtimeGHComponent
                 }
                 previousData = incomingData;
             }
-
-            // If the repository is not loaded, do WaitForConnection and pass a function that will reload the component when there is a connection
-            if (_repository.connected == false && waiting == false)
-            {
-                _ = Task.Run(() => OnNoConnection());
-                waiting = true;
-            }
-        }
-
-        private async Task OnNoConnection()
-        {
-            Action actionWhenConnected = () => this.ExpireSolution(true);
-            _repository.WaitForConnection(actionWhenConnected);
-            waiting = false;
         }
 
         /// <summary>
@@ -132,7 +118,7 @@ namespace realtimeGHComponent
 
         public async Task SendData()
         {
-            if (_repository.connected == false)
+            if (_repository.authorized == false)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Not connected to Firebase. Are you using the credentials component?");
                 //_repository.WaitForConnection(cancellationToken);
