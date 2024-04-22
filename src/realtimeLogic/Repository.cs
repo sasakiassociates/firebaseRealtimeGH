@@ -24,7 +24,6 @@ namespace realtimeLogic
 
         // TEMP delete the data locally every now and then as a workaround to the ghosting issue
         private int reloadInterval = 30000;
-        private Timer reloadTimer;
         private Task reloadThread;
 
         // Current connection data
