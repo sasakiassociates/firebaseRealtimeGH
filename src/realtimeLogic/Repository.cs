@@ -20,6 +20,12 @@ namespace realtimeLogic
         private AutoResetEvent reloadEvent = new AutoResetEvent(false);
         public bool connected = false;
         private Credentials credentials;
+        public CancellationToken CancellationToken { get; set; }
+
+        // TEMP delete the data locally every now and then as a workaround to the ghosting issue
+        private int reloadInterval = 30000;
+        private Timer reloadTimer;
+        private Task reloadThread;
 
         // Current connection data
         public FirebaseClient firebaseClient;
@@ -39,6 +45,15 @@ namespace realtimeLogic
         }
 
         ///////////////////////////////////////////////////////////////// SUBSCRIBING ///////////////////////////////////////////////////////////////////////////
+
+        private async void ReloadConnection(CancellationToken cancellationToken)
+        {
+            while (connected && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(reloadInterval);
+                ReloadConnection();
+            }
+        }
 
         /// <summary>
         /// Runs when local credential information is provided
@@ -160,6 +175,12 @@ namespace realtimeLogic
             }
 
             databaseObservers.Clear();
+
+            if (reloadThread == null)
+            {
+                // Start the reload thread that will reload the connection every reloadInterval milliseconds (to avoid ghosting)
+                reloadThread = Task.Run(() => ReloadConnection(CancellationToken));
+            }
 
             if (targetNodes.Count == 0)
             {
