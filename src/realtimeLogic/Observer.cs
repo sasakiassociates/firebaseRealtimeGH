@@ -35,22 +35,13 @@ namespace realtimeLogic
         { 
             folderName = _folderName;
             observingFolder = _observingFolder.Child(folderName);
-            observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
+            observerDataJson = "{{\"status\" : \"listening\"}}";
         }
 
         public async Task Reload()
         {
-            Unsubscribe();
+            UnsubscribeAsync();
             await Subscribe(callback);
-        }
-
-        public void SetNewFolder(ChildQuery newQuery, string _folderName)
-        {
-            Unsubscribe();
-            folderName = _folderName;
-            observingFolder = newQuery;
-            observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
-            _ = Subscribe(callback);
         }
 
         /// <summary>
@@ -61,8 +52,9 @@ namespace realtimeLogic
         public async Task Subscribe(Action<string> _callback)
         {
             callback = _callback;
+            
             // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is data in the folder)
-            await observingFolder.Child("listeners").PutAsync(observerDataJson);
+            await observingFolder.Child($"listeners/{observerId}").PutAsync(observerDataJson);
             
             subscription = observingFolder
                 .AsObservable<JToken>()
@@ -97,17 +89,18 @@ namespace realtimeLogic
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"{folderName}\"");
+
         }
 
         /// <summary>
         /// Unsubscribe from the database and remove the listener from the listeners folder
         /// </summary>
-        public void Unsubscribe()
+        public async Task UnsubscribeAsync()
         {
             if (subscription != null)
             {
                 subscription.Dispose();
-                observingFolder.Child("listeners").Child(observerId).DeleteAsync();
+                await observingFolder.Child("listeners").Child(observerId).DeleteAsync();
                 Console.WriteLine($"Unsubscribed from \"{folderName}\"");
             }
             else

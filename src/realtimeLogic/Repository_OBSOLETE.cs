@@ -137,7 +137,7 @@ namespace realtimeLogic
             // Unsubscribe observers
             foreach (DatabaseObserver observer in databaseObservers)
             {
-                observer.Unsubscribe();
+                observer.UnsubscribeAsync();
             }
 
             if (firebaseClient == null)
@@ -171,7 +171,7 @@ namespace realtimeLogic
         {
             foreach (DatabaseObserver observer in databaseObservers)
             {
-                observer.Unsubscribe();
+                observer.UnsubscribeAsync();
             }
 
             databaseObservers.Clear();

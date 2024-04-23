@@ -108,22 +108,10 @@ namespace firebaseRealtime
 
             if (incomingTargetNode != targetNode)
             {
-                repository.Unsubscribe();
+                Task.Run(async () => { await repository.UnsubscribeAsync(); }).Wait();
                 targetNode = incomingTargetNode;
                 subscriptionTask = repository.Subscribe(incomingTargetNode, SubscriptionCallback, cancellationToken);
             }
-            /*// If the incoming target folders are different from the current target nodes, update the target nodes
-            else if (!incomingTargetFolders.SequenceEqual(targetNodes))
-            {
-                // This keeps running whenever a new target folder is added
-                targetNodes = incomingTargetFolders;
-                repository.SetTargetNodes(targetNodes);
-            }
-
-            if (!repository.connected)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not connected to Firebase. Check your credentials and URL. Add the Credentials component to the sketch or provide credentials here");
-            }*/
 
             DA.SetData("Incoming Data", incomingData);
         }
@@ -168,7 +156,12 @@ namespace firebaseRealtime
             cancellationTokenSource.Cancel();
             if (repository != null)
             {
-                repository.Unsubscribe();
+                Task.Run(async () =>
+                {
+                    // Call the asynchronous method and wait for it to complete
+                    await repository.UnsubscribeAsync();
+                    subscriptionTask.Dispose();
+                }).Wait(); // Wait for the asynchronous operation to complete
                 subscriptionTask.Dispose();
             }
             base.RemovedFromDocument(document);
@@ -182,7 +175,12 @@ namespace firebaseRealtime
                 if (cancellationTokenSource != null)
                 {
                     cancellationTokenSource.Cancel();
-                    repository.Unsubscribe();
+                    Task.Run(async () =>
+                    {
+                        // Call the asynchronous method and wait for it to complete
+                        await repository.UnsubscribeAsync();
+                        subscriptionTask.Dispose();
+                    }).Wait(); // Wait for the asynchronous operation to complete
                     subscriptionTask.Dispose();
                 }
             }

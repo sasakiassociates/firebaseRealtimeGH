@@ -39,12 +39,13 @@ namespace realtimeLogic
         {
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
+            subscribed = true;
         }
         public async Task Subscribe(string targetNode, Action<string> callback, CancellationToken cancellationToken)
         {
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
-
+            subscribed = true;
             // TODO add a cancellation token to the observer
         }
 
@@ -52,9 +53,16 @@ namespace realtimeLogic
         /// Unsubscribes from the database. If there is no subscription, this does nothing.
         /// </summary>
         /// <returns></returns>
-        public void Unsubscribe()
+        public async Task UnsubscribeAsync()
         {
-            observer.Unsubscribe();
+            if (subscribed) 
+            {
+                await observer.UnsubscribeAsync();
+            }
+            else
+            {
+                Console.WriteLine("No subscription to unsubscribe from");
+            }
 
             subscribed = false;
         }
@@ -127,7 +135,23 @@ namespace realtimeLogic
         /// </summary>
         public void OnCredentialsChanged()
         {
+            Action<string> action = null;
+            string folder = "";
+
+            if (subscribed)
+            {
+                action = observer.callback;
+                folder = observer.folderName;
+                Task.Run(async () => { await UnsubscribeAsync(); }).Wait();
+            }
+
             baseQuery = _credentials.baseChildQuery;
+            authorized = true;
+            
+            if (subscribed)
+            {
+                Task.Run(async () => { await Subscribe(folder ,action); }).Wait();
+            }
         }
     }
 }
