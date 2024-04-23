@@ -26,7 +26,7 @@ namespace firebaseRealtime
         private bool listening = false;
         
         // Inputs
-        public string targetNode = "";
+        public string targetNodes = "";
         public string keyDirectory = "";
         public string url = "";
 
@@ -43,7 +43,6 @@ namespace firebaseRealtime
             "Strategist", "Firebase")
         {
             repository = new Repository();
-            repository.callback = SubscriptionCallback;
         }
 
         /// <summary>
@@ -52,7 +51,7 @@ namespace firebaseRealtime
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             // A list of folders to watch, each in the format "parent/child/folder1"
-            pManager.AddTextParameter("Target Folder", "F", "Target Folders", GH_ParamAccess.item);
+            pManager.AddTextParameter("Target Folders", "F", "Target Folders", GH_ParamAccess.item);
             // TODO make the last input optional and add a default behavior to watch the entire database
             pManager.AddTextParameter("Key directory", "K", "Key. Optional if the Repository is already connected in this sketch", GH_ParamAccess.item);
             pManager.AddTextParameter("Database URL", "U", "URL", GH_ParamAccess.item);
@@ -82,16 +81,16 @@ namespace firebaseRealtime
             string incomingDirectory = "";
             string incomingUrl = "";
 
-            DA.GetData(0, ref incomingTargetFolder);
-            DA.GetData(1, ref incomingDirectory);
-            DA.GetData(2, ref incomingUrl);
+            DA.GetData("Target Folders", ref incomingTargetFolder);
+            DA.GetData("Key directory", ref incomingDirectory);
+            DA.GetData("Database URL", ref incomingUrl);
 
             // If the incoming directory and url are different from the current directory and url, update the repository
             if (incomingDirectory != "" && incomingUrl != "" && incomingDirectory != keyDirectory && incomingUrl != url)
             {
                 keyDirectory = incomingDirectory;
                 url = incomingUrl;
-                repository.OverrideLocalConnection(keyDirectory, url).Wait();
+                repository.OverrideLocalConnection(keyDirectory, url);
             }
 
             // If the listener thread is not running, start it
@@ -100,16 +99,27 @@ namespace firebaseRealtime
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
 
-                _ = repository.Subscribe(targetNode);
                 listening = true;
             }
+            /*// If the incoming target folders are different from the current target nodes, update the target nodes
+            else if (!incomingTargetFolders.SequenceEqual(targetNodes))
+            {
+                // This keeps running whenever a new target folder is added
+                targetNodes = incomingTargetFolders;
+                repository.SetTargetNodes(targetNodes);
+            }
+
+            if (!repository.connected)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not connected to Firebase. Check your credentials and URL. Add the Credentials component to the sketch or provide credentials here");
+            }*/
 
             DA.SetData("Incoming Data", incomingData);
         }
 
-        public void SubscriptionCallback()
+        private void SubscriptionCallback(string data)
         {
-            incomingData = repository.updatedData;
+            incomingData = data;
 
             // Rerun the component
             Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
@@ -117,6 +127,7 @@ namespace firebaseRealtime
                 this.ExpireSolution(true);
             });
         }
+
 
         /// <summary>
         /// Append additional menu items to the main component menu.
@@ -146,7 +157,7 @@ namespace firebaseRealtime
             cancellationTokenSource.Cancel();
             if (repository != null)
             {
-                repository.Unsubscribe().Wait();
+                repository.Unsubscribe();
             }
             base.RemovedFromDocument(document);
         }
@@ -159,7 +170,7 @@ namespace firebaseRealtime
                 if (cancellationTokenSource != null)
                 {
                     cancellationTokenSource.Cancel();
-                    repository.Unsubscribe().Wait();
+                    repository.Unsubscribe();
                 }
             }
             base.DocumentContextChanged(document, context);

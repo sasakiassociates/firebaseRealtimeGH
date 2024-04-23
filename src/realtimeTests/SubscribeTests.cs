@@ -35,17 +35,46 @@ namespace realtimeTests
         [Test]
         public async Task SubscribeTest()
         {
-            await repository.Subscribe(baseNode);
+            await repository.Subscribe(baseNode, async (data) =>
+            {
+                Console.WriteLine(data);
+            });
         }
 
         [Test]
         public async Task ReloadSubscriptionTest()
         {
-            await repository.Subscribe(baseNode);
+            await repository.Subscribe(baseNode, async (data) =>
+            {
+                Console.WriteLine(data);
+            });
 
             await repository.Unsubscribe();
 
-            await repository.Subscribe(baseNode);
+            await repository.Subscribe(baseNode, async (data) =>
+            {
+                Console.WriteLine(data);
+            });
         }
+
+        [Test]
+        public async Task CallbackTest()
+        {
+            await repository.Subscribe($"{baseNode}/test", async (data) =>
+            {
+                Console.WriteLine(data);
+                Console.WriteLine("Testing Callback");
+            });
+
+            await repository.PutAsync($"{baseNode}/test/childTest", new List<object> { "{{\"test\": \"test\"}}" });
+
+            await Task.Delay(1000);
+
+            await repository.DeleteNode($"{baseNode}/test/childTest");
+
+            await Task.Delay(1000);
+        }
+
+
     }
 }

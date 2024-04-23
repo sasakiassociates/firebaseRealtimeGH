@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Reactive;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace realtimeLogic
@@ -12,19 +13,11 @@ namespace realtimeLogic
     {
         private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
         public ChildQuery baseQuery;                                                // Instance of the client to communicate with Firebase 
+        DatabaseObserver observer;
+        AutoResetEvent updateEvent = new AutoResetEvent(false);
 
-        List<RepoObserver> observers = new List<RepoObserver>();
-
-        IDisposable subscription;                                                   // Subscription to the database
         public bool authorized = false;                                             // Whether the user is authorized to access the database
-        public ChildQuery observingFolder;                                                 // The folder in the database that we are observing
-        string subscriptionId;
-        private Dictionary<string, string> databaseDictionary = new Dictionary<string, string>();
-        public string updatedData;
-        private Debouncer debouncer = Debouncer.GetInstance();
-        public Action callback { get; set; }
-        string targetNode;
-
+        public bool subscribed = false;                                             // Whether the user is subscribed to the database
 
         public Repository()
         {
@@ -42,73 +35,11 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="targetNodes"></param>
         /// <returns></returns>
-        public async Task Subscribe(string targetNode)
+        /// TODO for now, we'll limit the target nodes to a single node (multiple nodes might have caused race conditions)
+        public async Task Subscribe(string targetNode, Action<string> callback)
         {
-            this.targetNode = targetNode;
-
-            subscriptionId = Guid.NewGuid().ToString();
-            observingFolder = baseQuery.Child(targetNode);
-
-            await observingFolder.Child("listener").PutAsync($"{{\"{subscriptionId}\": {{\"status\" : \"listening\"}}}}");
-
-            // Subscribe to the database with the given callback called whenever an update event is triggered
-            subscription = observingFolder.AsObservable<string>().Subscribe(_firebaseEvent =>
-            {
-                Console.WriteLine($"Received event: {_firebaseEvent.EventType} {targetNode} {_firebaseEvent.Key} {_firebaseEvent.Object}");
-                // Use the key (e.g., object ID) to identify each object
-                string objectId = _firebaseEvent.Key;
-                string data = _firebaseEvent.Object;
-
-                // TODO find a better way to handle these cases
-                if (_firebaseEvent.EventType == Firebase.Database.Streaming.FirebaseEventType.InsertOrUpdate)
-                {
-                    databaseDictionary[objectId] = data;
-                }
-                else if (_firebaseEvent.EventType == Firebase.Database.Streaming.FirebaseEventType.Delete)
-                {
-                    databaseDictionary.Remove(objectId);
-                }
-
-                debouncer.Debounce(() =>
-                {
-                    updatedData = DatabaseToString();
-                    if (callback != null)
-                    {
-                        callback();
-                    }
-                });
-            });
-            Console.WriteLine($"Subscribed to {targetNode}");
-        }
-
-        public async Task ReloadSubscription()
-        {
-            await Unsubscribe();
-            await Subscribe(targetNode);
-        }
-
-        private string DatabaseToString()
-        {
-            if (databaseDictionary.Count == 0)
-            {
-                return null;
-            }
-
-            string output = "{\n";
-            // TODO this enumeration gets interrupted by new data coming in, so it's not thread safe
-            foreach (var key in databaseDictionary.Keys)
-            {
-                output += $" \"{key}\": {databaseDictionary[key]},\n";
-            }
-
-            // Remove the trailing comma and newline, if any
-            if (output.EndsWith(",\n"))
-            {
-                output = output.Substring(0, output.Length - 2) + "\n";
-            }
-            output += "}";
-
-            return output;
+            observer = new DatabaseObserver(baseQuery, targetNode);
+            await observer.Subscribe(callback);
         }
 
         /// <summary>
@@ -117,14 +48,30 @@ namespace realtimeLogic
         /// <returns></returns>
         public async Task Unsubscribe()
         {
-            if (subscription == null)
+            await observer.Unsubscribe();
+
+            subscribed = false;
+        }
+
+        public string WaitForUpdate(CancellationToken cancellationToken)
+        {
+            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
+
+            if (cancellationToken.IsCancellationRequested)
             {
-                Console.WriteLine("No subscription to unsubscribe from");
-                return;
+                return null;
             }
-            subscription?.Dispose();
-            await observingFolder.Child($"listener/{subscriptionId}").DeleteAsync();
-            Console.WriteLine("Unsubscribed from the database");
+
+            string updatedData = observer.GetData();
+
+            return updatedData;
+        }
+
+        public void ReloadConnection()
+        {
+            string observingFolder = observer.folderName;
+
+            observer = new DatabaseObserver(baseQuery, observingFolder);
         }
 
         /// <summary>
@@ -134,7 +81,7 @@ namespace realtimeLogic
         /// <param name="_firebaseUrl"></param>
         /// <param name="basePath"></param>
         /// <returns></returns>
-        public async Task OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
+        public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
         {
             authorized = false;
             if (_pathToKeyFile == null && _firebaseUrl == null)
@@ -158,7 +105,6 @@ namespace realtimeLogic
                 authorized = true;
             }
 
-            await ReloadSubscription();
         }
 
         /// <summary>
@@ -177,24 +123,23 @@ namespace realtimeLogic
         /// <param name="data"></param>
         /// <param name="destination"></param>
         /// <returns></returns>
-        public async Task PutAsync(object data, string destination)
+        public async Task PutAsync(string destination, List<object> dataPoints)
         {
-            await baseQuery.Child(destination).PutAsync(data);
+            await baseQuery.Child(destination).PutAsync(dataPoints);
         }
 
         /// <summary>
         /// Does a one time pull of data from the database at the specified destination
         /// </summary>
         /// <param name="destination"></param>
-        public void PullData(string destination)
+        public async Task PullData(string destination)
         {
-            throw new NotImplementedException();
+            await baseQuery.Child(destination).OnceSingleAsync<string>();
         }
 
         /// <summary>
         /// Runs whenever the Credentials class fires the CredentialsChanged event. We need to set the baseQuery to the new credentials and recreate the observers if we have any.
         /// </summary>
-        /// <exception cref="NotImplementedException"></exception>
         public void OnCredentialsChanged()
         {
             baseQuery = _credentials.baseChildQuery;

@@ -31,9 +31,10 @@ namespace realtimeLogic
 
         Debouncer debouncer = Debouncer.GetInstance();
 
-        public DatabaseObserver(ChildQuery _observingFolder) 
+        public DatabaseObserver(ChildQuery _observingFolder, string _folderName = "") 
         { 
-            observingFolder = _observingFolder;
+            folderName = _folderName;
+            observingFolder = _observingFolder.Child(folderName);
             observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
@@ -42,9 +43,8 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="_updateEvent"></param>
         /// <returns></returns>
-        public async Task Subscribe(Action callback)
+        public async Task Subscribe(Action<string> callback)
         {
-            this.callback = callback;
             // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is data in the folder)
             await observingFolder.Child("listeners").PutAsync(observerDataJson);
             
@@ -75,8 +75,8 @@ namespace realtimeLogic
                     // Debouncer starts a timer that will wait to process the updates until the timer expires
                     debouncer.Debounce(() =>
                     {
-                        updatedData = DictionaryToString();
-                        callback();
+                        updatedData = GetData();
+                        callback(updatedData);
                     });
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
@@ -156,12 +156,18 @@ namespace realtimeLogic
         }
 
         /// <summary>
-        /// Converts the dataDictionary to a string
+        /// Copies the data dictionary, locks the thread while copying, and returns the copy as a string
         /// </summary>
         /// <returns></returns>
-        private string DictionaryToString()
+        public string GetData()
         {
-            if (dataDictionary.Count == 0)
+            lock (dataDictionary)
+            {
+                return JsonConvert.SerializeObject(dataDictionary);
+            }
+
+
+            /*if (dataDictionary.Count == 0)
             {
                 return null;
             }
@@ -180,7 +186,7 @@ namespace realtimeLogic
             }
             output += "}";
 
-            return output;
+            return output;*/
         }
     }
 }

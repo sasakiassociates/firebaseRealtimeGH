@@ -18,7 +18,7 @@ namespace realtimeGHComponent
         Repository _repository;
         string firebaseUrl;
         string pathToKeyFile;
-        List<string> destinations = new List<string>();
+        string destination = "";
         List<object> incomingData = new List<object>();
         List<object> previousData = new List<object>();
         List<object> dataToSend = new List<object>();
@@ -47,7 +47,7 @@ namespace realtimeGHComponent
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Data", "Data", "The data to send to the Firebase database", GH_ParamAccess.list);
-            pManager.AddTextParameter("Destinations", "Destinations", "The specific location(s) in the Firebase database to send the data in the format 'cad_points' or 'examplefolder/subfolder/cad_points' WARNING: this overrides any data in the designated location", GH_ParamAccess.list);
+            pManager.AddTextParameter("Destination", "Destination", "The specific location(s) in the Firebase database to send the data in the format 'cad_points' or 'examplefolder/subfolder/cad_points' WARNING: this overrides any data in the designated location", GH_ParamAccess.item);
             pManager.AddTextParameter("Key directory", "Key directory", "The directory of the key file for the Firebase database", GH_ParamAccess.item);
             pManager.AddTextParameter("Database URL", "Database URL", "The URL of the Firebase database", GH_ParamAccess.item);
 
@@ -70,17 +70,16 @@ namespace realtimeGHComponent
         {
             previousData.Clear();
             incomingData.Clear();
-            destinations.Clear();
             dataToSend.Clear();
 
             DA.GetDataList("Data", incomingData);
-            DA.GetDataList(1, destinations);
+            DA.GetData("Destination", ref destination);
             DA.GetData("Key directory", ref pathToKeyFile);
             DA.GetData("Database URL", ref firebaseUrl);
 
             if (pathToKeyFile != null && firebaseUrl != null)
             {
-                _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl).Wait();
+                _repository.OverrideLocalConnection(pathToKeyFile, firebaseUrl);
             }
 
             // Get the value from each of the objects in the incoming data
@@ -93,7 +92,7 @@ namespace realtimeGHComponent
             {
                 try
                 {
-                    _ = SendData();
+                    _ = _repository.PutAsync(destination, dataToSend);
                 }
                 catch (Exception e)
                 {
@@ -120,12 +119,12 @@ namespace realtimeGHComponent
         {
             if (_repository.authorized == false)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Not connected to Firebase. Are you using the credentials component?");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Not authorized to interact with Firebase. Are you using the credentials component?");
                 //_repository.WaitForConnection(cancellationToken);
                 return;
             }
 
-            if (dataToSend.Count == 1)
+            /*if (dataToSend.Count == 1)
             {
                 object data = dataToSend[0];
                 foreach (string destination in destinations)
@@ -140,7 +139,7 @@ namespace realtimeGHComponent
                     // TODO this seems to send excess information along with the data, need to figure out how to send only the data
                     await _repository.PutAsync(dataToSend, destination);
                 }
-            }
+            }*/
         }
 
         public class FirebaseSendAttributes : GH_ComponentAttributes
