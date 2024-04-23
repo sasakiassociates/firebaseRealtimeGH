@@ -27,9 +27,9 @@ namespace realtimeTests
         }
 
         [TearDown]
-        public async Task TearDown()
+        public void TearDown()
         {
-            await repository.Unsubscribe();
+            repository.Unsubscribe();
         }
 
         [Test]
@@ -49,7 +49,7 @@ namespace realtimeTests
                 Console.WriteLine(data);
             });
 
-            await repository.Unsubscribe();
+            repository.Unsubscribe();
 
             await repository.Subscribe(baseNode, async (data) =>
             {
@@ -75,6 +75,24 @@ namespace realtimeTests
             await Task.Delay(1000);
         }
 
+        [Test]
+        public async Task ReloadTest()
+        {
+            await repository.Subscribe($"{baseNode}/test", async (data) =>
+            {
+                Console.WriteLine(data);
+            });
+
+            await Task.Delay(3000);
+
+            repository.Unsubscribe();
+            await repository.Subscribe($"{baseNode}/test2", async (data) =>
+            {
+                Console.WriteLine(data);
+            });
+
+            await Task.Delay(3000);
+        }
 
     }
 }

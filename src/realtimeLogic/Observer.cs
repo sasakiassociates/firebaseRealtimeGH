@@ -22,7 +22,7 @@ namespace realtimeLogic
     {
         IDisposable subscription;
         public string folderName;
-        public Action callback;
+        public Action<string> callback;
         string observerId = Guid.NewGuid().ToString();
         string observerDataJson;
         private Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
@@ -38,13 +38,29 @@ namespace realtimeLogic
             observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
         }
 
+        public async Task Reload()
+        {
+            Unsubscribe();
+            await Subscribe(callback);
+        }
+
+        public void SetNewFolder(ChildQuery newQuery, string _folderName)
+        {
+            Unsubscribe();
+            folderName = _folderName;
+            observingFolder = newQuery;
+            observerDataJson = $"{{\"{observerId}\": {{\"status\" : \"listening\"}}}}";
+            _ = Subscribe(callback);
+        }
+
         /// <summary>
         /// Subscribes to the database and listens for updates to the target folder
         /// </summary>
         /// <param name="_updateEvent"></param>
         /// <returns></returns>
-        public async Task Subscribe(Action<string> callback)
+        public async Task Subscribe(Action<string> _callback)
         {
+            callback = _callback;
             // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is data in the folder)
             await observingFolder.Child("listeners").PutAsync(observerDataJson);
             
@@ -76,7 +92,7 @@ namespace realtimeLogic
                     debouncer.Debounce(() =>
                     {
                         updatedData = GetData();
-                        callback(updatedData);
+                        _callback(updatedData);
                     });
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
@@ -86,12 +102,12 @@ namespace realtimeLogic
         /// <summary>
         /// Unsubscribe from the database and remove the listener from the listeners folder
         /// </summary>
-        public async Task Unsubscribe()
+        public void Unsubscribe()
         {
             if (subscription != null)
             {
                 subscription.Dispose();
-                await observingFolder.Child("listeners").Child(observerId).DeleteAsync();
+                observingFolder.Child("listeners").Child(observerId).DeleteAsync();
                 Console.WriteLine($"Unsubscribed from \"{folderName}\"");
             }
             else

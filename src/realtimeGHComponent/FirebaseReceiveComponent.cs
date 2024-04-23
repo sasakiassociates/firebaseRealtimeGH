@@ -24,9 +24,11 @@ namespace firebaseRealtime
 
         public string incomingData;
         private bool listening = false;
+
+        Task subscriptionTask;
         
         // Inputs
-        public string targetNodes = "";
+        public string targetNode = "";
         public string keyDirectory = "";
         public string url = "";
 
@@ -77,11 +79,11 @@ namespace firebaseRealtime
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            string incomingTargetFolder = "";
+            string incomingTargetNode = "";
             string incomingDirectory = "";
             string incomingUrl = "";
 
-            DA.GetData("Target Folders", ref incomingTargetFolder);
+            DA.GetData("Target Folders", ref incomingTargetNode);
             DA.GetData("Key directory", ref incomingDirectory);
             DA.GetData("Database URL", ref incomingUrl);
 
@@ -99,7 +101,16 @@ namespace firebaseRealtime
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
 
+                subscriptionTask = repository.Subscribe(incomingTargetNode, SubscriptionCallback, cancellationToken);
+
                 listening = true;
+            }
+
+            if (incomingTargetNode != targetNode)
+            {
+                repository.Unsubscribe();
+                targetNode = incomingTargetNode;
+                subscriptionTask = repository.Subscribe(incomingTargetNode, SubscriptionCallback, cancellationToken);
             }
             /*// If the incoming target folders are different from the current target nodes, update the target nodes
             else if (!incomingTargetFolders.SequenceEqual(targetNodes))
@@ -158,6 +169,7 @@ namespace firebaseRealtime
             if (repository != null)
             {
                 repository.Unsubscribe();
+                subscriptionTask.Dispose();
             }
             base.RemovedFromDocument(document);
         }
@@ -171,6 +183,7 @@ namespace firebaseRealtime
                 {
                     cancellationTokenSource.Cancel();
                     repository.Unsubscribe();
+                    subscriptionTask.Dispose();
                 }
             }
             base.DocumentContextChanged(document, context);

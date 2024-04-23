@@ -14,7 +14,6 @@ namespace realtimeLogic
         private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
         public ChildQuery baseQuery;                                                // Instance of the client to communicate with Firebase 
         DatabaseObserver observer;
-        AutoResetEvent updateEvent = new AutoResetEvent(false);
 
         public bool authorized = false;                                             // Whether the user is authorized to access the database
         public bool subscribed = false;                                             // Whether the user is subscribed to the database
@@ -41,37 +40,23 @@ namespace realtimeLogic
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
         }
+        public async Task Subscribe(string targetNode, Action<string> callback, CancellationToken cancellationToken)
+        {
+            observer = new DatabaseObserver(baseQuery, targetNode);
+            await observer.Subscribe(callback);
+
+            // TODO add a cancellation token to the observer
+        }
 
         /// <summary>
         /// Unsubscribes from the database. If there is no subscription, this does nothing.
         /// </summary>
         /// <returns></returns>
-        public async Task Unsubscribe()
+        public void Unsubscribe()
         {
-            await observer.Unsubscribe();
+            observer.Unsubscribe();
 
             subscribed = false;
-        }
-
-        public string WaitForUpdate(CancellationToken cancellationToken)
-        {
-            WaitHandle.WaitAny(new WaitHandle[] { updateEvent, cancellationToken.WaitHandle });
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
-
-            string updatedData = observer.GetData();
-
-            return updatedData;
-        }
-
-        public void ReloadConnection()
-        {
-            string observingFolder = observer.folderName;
-
-            observer = new DatabaseObserver(baseQuery, observingFolder);
         }
 
         /// <summary>
