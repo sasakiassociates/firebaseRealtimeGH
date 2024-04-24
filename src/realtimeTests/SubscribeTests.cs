@@ -41,6 +41,8 @@ namespace realtimeTests
             {
                 Console.WriteLine(data);
             });
+
+            await Task.Delay(10000);
         }
 
         [Test]

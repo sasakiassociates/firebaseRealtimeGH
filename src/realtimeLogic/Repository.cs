@@ -1,5 +1,6 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Reactive;
@@ -43,7 +44,8 @@ namespace realtimeLogic
         public async Task Subscribe(string targetNode, Action<string> callback)
         {
             // Initial Pull
-            string data = await baseQuery.Child(targetNode).OnceSingleAsync<string>();
+            Dictionary<string, object> dataDict = await baseQuery.Child(targetNode).OnceSingleAsync<Dictionary<string, object>>();
+            string data = JsonConvert.SerializeObject(dataDict);
             callback(data);
 
             observer = new DatabaseObserver(baseQuery, targetNode);

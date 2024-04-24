@@ -36,6 +36,7 @@ namespace realtimeLogic
             folderName = _folderName;
             observingFolder = _observingFolder.Child(folderName);
             observerDataJson = "{{\"status\" : \"listening\"}}";
+            observerDataJson = JsonConvert.SerializeObject(observerDataJson);
         }
 
         public async Task Reload()
@@ -174,28 +175,6 @@ namespace realtimeLogic
             {
                 return JsonConvert.SerializeObject(dataDictionary);
             }
-
-
-            /*if (dataDictionary.Count == 0)
-            {
-                return null;
-            }
-
-            string output = "{\n";
-            // TODO this enumeration gets interrupted by new data coming in, so it's not thread safe
-            foreach (var key in dataDictionary.Keys)
-            {
-                output += $" \"{key}\": {dataDictionary[key]},\n";
-            }
-
-            // Remove the trailing comma and newline, if any
-            if (output.EndsWith(",\n"))
-            {
-                output = output.Substring(0, output.Length - 2) + "\n";
-            }
-            output += "}";
-
-            return output;*/
         }
     }
 }
