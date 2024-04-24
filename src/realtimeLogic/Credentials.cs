@@ -16,6 +16,7 @@ namespace realtimeLogic
 
         public event Action CredentialsChanged;
         public ChildQuery baseChildQuery;
+        public bool isAuthorized = false;
 
         private Credentials()
         {
@@ -42,6 +43,8 @@ namespace realtimeLogic
 
             baseChildQuery = firebaseClient.Child(basePath);
 
+            isAuthorized = true;
+
             CredentialsChanged?.Invoke();
         }
 
@@ -67,6 +70,8 @@ namespace realtimeLogic
         public void EraseCredentials()
         {
             firebaseClient = null;
+            baseChildQuery = null;
+            isAuthorized = false;
         }
     }
 }

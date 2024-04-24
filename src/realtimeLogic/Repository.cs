@@ -29,6 +29,11 @@ namespace realtimeLogic
             }
         }
 
+        public void SetTargetNode(string targetNode)
+        {
+            
+        }
+
         /// <summary>
         /// Makes a subscription to the database and listens for updates to the target folder. You can set callback functions on this class to run when the data is updated.
         /// </summary>
@@ -37,12 +42,20 @@ namespace realtimeLogic
         /// TODO for now, we'll limit the target nodes to a single node (multiple nodes might have caused race conditions)
         public async Task Subscribe(string targetNode, Action<string> callback)
         {
+            // Initial Pull
+            string data = await baseQuery.Child(targetNode).OnceSingleAsync<string>();
+            callback(data);
+
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
             subscribed = true;
         }
         public async Task Subscribe(string targetNode, Action<string> callback, CancellationToken cancellationToken)
         {
+            // Initial Pull
+            string data = await baseQuery.Child(targetNode).OnceSingleAsync<string>();
+            callback(data);
+
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
             subscribed = true;
@@ -116,9 +129,13 @@ namespace realtimeLogic
         /// <param name="data"></param>
         /// <param name="destination"></param>
         /// <returns></returns>
-        public async Task PutAsync(string destination, List<object> dataPoints)
+        /*public async Task PutAsync(string destination, List<object> dataPoints)
         {
             await baseQuery.Child(destination).PutAsync(dataPoints);
+        }*/
+        public async Task PutAsync(string destination, object data)
+        {
+            await baseQuery.Child(destination).PutAsync(data);
         }
 
         /// <summary>
@@ -146,8 +163,11 @@ namespace realtimeLogic
             }
 
             baseQuery = _credentials.baseChildQuery;
-            authorized = true;
-            
+            if (baseQuery != null)
+            {
+                authorized = true;
+            }
+
             if (subscribed)
             {
                 Task.Run(async () => { await Subscribe(folder ,action); }).Wait();
