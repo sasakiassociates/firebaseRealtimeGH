@@ -25,8 +25,6 @@ namespace firebaseRealtime
         public string incomingData;
         private bool listening = false;
 
-        Task subscriptionTask;
-        
         // Inputs
         public string targetNode = "";
         public string keyDirectory = "";
@@ -101,7 +99,7 @@ namespace firebaseRealtime
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
 
-                subscriptionTask = repository.Subscribe(incomingTargetNode, SubscriptionCallback, cancellationToken);
+                Task.Run(async () => { await repository.Subscribe(incomingTargetNode, SubscriptionCallback); }).Wait();
 
                 listening = true;
             }
@@ -110,7 +108,7 @@ namespace firebaseRealtime
             {
                 Task.Run(async () => { await repository.UnsubscribeAsync(); }).Wait();
                 targetNode = incomingTargetNode;
-                subscriptionTask = repository.Subscribe(incomingTargetNode, SubscriptionCallback, cancellationToken);
+                Task.Run(async () => { await repository.Subscribe(incomingTargetNode, SubscriptionCallback); }).Wait();
             }
 
             DA.SetData("Incoming Data", incomingData);
@@ -160,9 +158,7 @@ namespace firebaseRealtime
                 {
                     // Call the asynchronous method and wait for it to complete
                     await repository.UnsubscribeAsync();
-                    subscriptionTask.Dispose();
                 }).Wait(); // Wait for the asynchronous operation to complete
-                subscriptionTask.Dispose();
             }
             base.RemovedFromDocument(document);
         }
@@ -179,9 +175,7 @@ namespace firebaseRealtime
                     {
                         // Call the asynchronous method and wait for it to complete
                         await repository.UnsubscribeAsync();
-                        subscriptionTask.Dispose();
                     }).Wait(); // Wait for the asynchronous operation to complete
-                    subscriptionTask.Dispose();
                 }
             }
             base.DocumentContextChanged(document, context);

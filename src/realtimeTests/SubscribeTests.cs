@@ -144,5 +144,16 @@ namespace realtimeTests
             Console.WriteLine(parsedTest["rotation"]);
 
         }
+
+        [Test]
+        public async Task SubscribeNullTest()
+        {
+            await repository.Subscribe("", async (data) =>
+            {
+                Console.WriteLine(data);
+            });
+
+            Assert.Pass();
+        }
     }
 }
