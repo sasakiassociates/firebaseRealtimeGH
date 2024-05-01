@@ -1,4 +1,5 @@
-﻿using realtimeLogic;
+﻿using Firebase.Database.Query;
+using realtimeLogic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -98,5 +99,50 @@ namespace realtimeTests
             await Task.Delay(3000);
         }
 
+        [Test]
+        public async Task FlushTest()
+        {
+            repository.SetFlushInterval(2000);
+
+            await repository.Subscribe($"{baseNode}/test", async (data) =>
+            {
+                Console.WriteLine(data);
+            });
+
+            await Task.Delay(11000);
+        }
+
+        [Test]
+        public async Task ParseTest()
+        {
+            string testId = "testId";
+            object testMarker = new { x = 10, y = 20, rotation = 45 };
+            // Serialize the data
+            await repository.PutAsync($"{baseNode}/marker/{testId}", testMarker);
+
+            var data = await repository.PullData($"{baseNode}/marker/{testId}");
+
+            // convert the data to a dictionary
+            Dictionary<string, object> parsedData = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(data.ToString());
+            
+            int x = (int)parsedData["x"];
+            int y = (int)parsedData["y"];
+            int rotation = (int)parsedData["rotation"];
+
+            Console.WriteLine(data);
+        }
+
+        [Test]
+        public async Task PullTest()
+        {
+            ChildQuery query = repository.baseQuery;
+            var test = await query.Child("bases/test_proj/marker/testId").OnceAsJsonAsync();
+            Console.WriteLine(test);
+
+            // Parse the test data
+            var parsedTest = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(test);
+            Console.WriteLine(parsedTest["rotation"]);
+
+        }
     }
 }

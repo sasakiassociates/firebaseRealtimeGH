@@ -171,9 +171,24 @@ namespace realtimeLogic
         /// <returns></returns>
         public string GetData()
         {
+            Dictionary<string, string> snapshot;
             lock (dataDictionary)
             {
-                return JsonConvert.SerializeObject(dataDictionary);
+                snapshot = new Dictionary<string, string>(dataDictionary);
+            }
+            return JsonConvert.SerializeObject(snapshot);
+        }
+
+        /// <summary>
+        /// Clear the local data dictionary (workaround for missing data). Should be called when periodically
+        /// </summary>
+        public void ClearData()
+        {
+            lock (dataDictionary)
+            {
+                Console.WriteLine("Clearing data dictionary");
+                dataDictionary.Clear();
+                Console.WriteLine(JsonConvert.SerializeObject(dataDictionary));
             }
         }
     }

@@ -19,6 +19,8 @@ namespace realtimeLogic
         public bool authorized = false;                                             // Whether the user is authorized to access the database
         public bool subscribed = false;                                             // Whether the user is subscribed to the database
 
+        public int flushInterval = 10000;                                           // Interval to flush the data
+
         public Repository()
         {
             _credentials = Credentials.GetInstance();
@@ -30,9 +32,13 @@ namespace realtimeLogic
             }
         }
 
-        public void SetTargetNode(string targetNode)
+        public async Task SetTargetNode(string targetNode)
         {
-            
+            Action<string> callback = observer.callback;
+
+            await observer.UnsubscribeAsync();
+            observer = new DatabaseObserver(baseQuery, targetNode);
+            await observer.Subscribe(callback);
         }
 
         /// <summary>
@@ -51,6 +57,9 @@ namespace realtimeLogic
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
             subscribed = true;
+
+            // Start a thread to flush the data periodically
+            _ = Task.Run(async () => { await FlushThread(); });
         }
         public async Task Subscribe(string targetNode, Action<string> callback, CancellationToken cancellationToken)
         {
@@ -62,6 +71,9 @@ namespace realtimeLogic
             await observer.Subscribe(callback);
             subscribed = true;
             // TODO add a cancellation token to the observer
+
+            // Start a thread to flush the data periodically
+            _ = Task.Run(async () => { await FlushThread(); });
         }
 
         /// <summary>
@@ -144,9 +156,10 @@ namespace realtimeLogic
         /// Does a one time pull of data from the database at the specified destination
         /// </summary>
         /// <param name="destination"></param>
-        public async Task PullData(string destination)
+        public async Task<object> PullData(string destination)
         {
-            await baseQuery.Child(destination).OnceSingleAsync<string>();
+            var response = await baseQuery.Child(destination).OnceAsJsonAsync();
+            return response;
         }
 
         /// <summary>
@@ -174,6 +187,31 @@ namespace realtimeLogic
             {
                 Task.Run(async () => { await Subscribe(folder ,action); }).Wait();
             }
+        }
+
+        /// <summary>
+        /// Flush the local current data (workaround for bugs when the pull misses data)
+        /// </summary>
+        public async Task FlushThread()
+        {
+            while (subscribed)
+            {
+                // Wait the flush interval
+                await Task.Delay(flushInterval);
+
+                observer.ClearData();
+
+                Console.WriteLine("Flushed data");
+            }
+        }
+
+        /// <summary>
+        /// Sets the time period in milliseconds to periodically flush the local data
+        /// </summary>
+        /// <param name="interval"></param>
+        public void SetFlushInterval(int interval)
+        {
+            flushInterval = interval;
         }
     }
 }
