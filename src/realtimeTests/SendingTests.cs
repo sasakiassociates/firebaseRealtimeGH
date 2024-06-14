@@ -19,15 +19,16 @@ namespace realtimeTests
         public void Setup()
         {
             Credentials credentials = Credentials.GetInstance();
-            baseNode = $"bases/{projectName}";
+            baseNode = $"bases/{projectName}/marker";
             credentials.SetSharedCredentials(keyPath, databaseURL, baseNode);
 
             repository = new Repository();
         }
 
         [TearDown]
-        public void TearDown()
+        public async Task TearDown()
         {
+            await repository.UnsubscribeAsync();
         }
 
         [Test]
@@ -36,6 +37,18 @@ namespace realtimeTests
             string destination = "test";
             string testJson = "test";
             await repository.PutAsync(destination, testJson);
+        }
+
+        [Test]
+        public async Task SubscribeTest()
+        {
+            await repository.Subscribe("", async (data) =>
+            {
+                Console.WriteLine(data);
+            });
+
+            // Sleep for 10 seconds to allow the subscription to run
+            await Task.Delay(10000);
         }
     }
 }

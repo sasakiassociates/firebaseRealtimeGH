@@ -104,7 +104,7 @@ namespace realtimeTests
         {
             repository.SetFlushInterval(2000);
 
-            await repository.Subscribe($"{baseNode}/test", async (data) =>
+            await repository.Subscribe($"{baseNode}/marker", async (data) =>
             {
                 Console.WriteLine(data);
             });

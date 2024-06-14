@@ -1,6 +1,7 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Reactive;
@@ -24,7 +25,7 @@ namespace realtimeLogic
         public Repository()
         {
             _credentials = Credentials.GetInstance();
-            _credentials.CredentialsChanged += OnCredentialsChanged;
+            _credentials.CredentialsChanged += OnCredentialsChanged;                // Subscribe to the credentials changed event
             if (_credentials.baseChildQuery != null)
             {
                 baseQuery = _credentials.baseChildQuery;
@@ -34,7 +35,7 @@ namespace realtimeLogic
 
         public async Task SetTargetNode(string targetNode)
         {
-            Action<string> callback = observer.callback;
+            Action<Dictionary<string, object>> callback = observer.callback;
 
             await observer.UnsubscribeAsync();
             observer = new DatabaseObserver(baseQuery, targetNode);
@@ -47,33 +48,60 @@ namespace realtimeLogic
         /// <param name="targetNodes"></param>
         /// <returns></returns>
         /// TODO for now, we'll limit the target nodes to a single node (multiple nodes might have caused race conditions)
-        public async Task Subscribe(string targetNode, Action<string> callback)
+        public async Task Subscribe(string targetNode, Action<Dictionary<string, object>> callback)
         {
+            if (!authorized)
+            {
+                Console.WriteLine("Not authorized to access the database");
+                return;
+            }
             // Initial Pull
             Dictionary<string, object> dataDict = await baseQuery.Child(targetNode).OnceSingleAsync<Dictionary<string, object>>();
             string data = JsonConvert.SerializeObject(dataDict);
-            callback(data);
+            callback(dataDict);
 
             observer = new DatabaseObserver(baseQuery, targetNode);
             await observer.Subscribe(callback);
             subscribed = true;
 
-            // Start a thread to flush the data periodically
-            _ = Task.Run(async () => { await FlushThread(); });
-        }
-        public async Task Subscribe(string targetNode, Action<string> callback, CancellationToken cancellationToken)
-        {
-            // Initial Pull
-            string data = await baseQuery.Child(targetNode).OnceSingleAsync<string>();
-            callback(data);
+            // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is data in the folder)
+            await observingFolder.Child($"listeners/{observerId}").PutAsync(observerDataJson);
 
-            observer = new DatabaseObserver(baseQuery, targetNode);
-            await observer.Subscribe(callback);
-            subscribed = true;
-            // TODO add a cancellation token to the observer
+            subscription = observingFolder
+                .AsObservable<JToken>()
+                .Subscribe(_firebaseEvent =>
+                {
+                    Console.WriteLine($"Received event: {_firebaseEvent.EventType} {folderName} {_firebaseEvent.Key} {_firebaseEvent.Object}");
+                    // Use the key (e.g., object ID) to identify each object
+                    string objectId = _firebaseEvent.Key;
+                    JToken data = _firebaseEvent.Object;
 
-            // Start a thread to flush the data periodically
-            _ = Task.Run(async () => { await FlushThread(); });
+                    // TODO find a better way to handle these cases
+                    if (objectId == "listeners")
+                    {
+                        return;
+                    }
+                    if (objectId == "update_interval")
+                    {
+                        // Convert the data to an int
+                        int milliseconds = int.Parse(data.ToString());
+                        debouncer.SetDebounceDelay(milliseconds);
+                    }
+
+                    ParseEvent(_firebaseEvent);
+
+                    // TODO fix the Debounce function. Currently it misses updates frequently (could be Timer instantiation issue)
+                    // Debouncer starts a timer that will wait to process the updates until the timer expires
+                    debouncer.Debounce(() =>
+                    {
+                        /*updatedData = GetData();*/
+                        // copy the dataDictionary
+                        _callback(dataDictionary);
+                    });
+                },
+                ex => Console.WriteLine($"Observer error: {ex.Message}"));
+            Console.WriteLine($"Subscribed to \"{folderName}\"");
+            isListening = true;
         }
 
         /// <summary>
@@ -167,7 +195,7 @@ namespace realtimeLogic
         /// </summary>
         public void OnCredentialsChanged()
         {
-            Action<string> action = null;
+            Action<Dictionary<string, object>> action = null;
             string folder = "";
 
             if (subscribed)

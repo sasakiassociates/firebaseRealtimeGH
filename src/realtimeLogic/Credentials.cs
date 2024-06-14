@@ -39,11 +39,17 @@ namespace realtimeLogic
 
         public void SetSharedCredentials(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
         {
-            firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+            try
+            {
+                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
 
-            baseChildQuery = firebaseClient.Child(basePath);
+                baseChildQuery = firebaseClient.Child(basePath);
 
-            isAuthorized = true;
+                isAuthorized = true;
+            } catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
 
             CredentialsChanged?.Invoke();
         }

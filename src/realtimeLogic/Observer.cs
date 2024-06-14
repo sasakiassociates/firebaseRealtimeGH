@@ -22,12 +22,17 @@ namespace realtimeLogic
     {
         IDisposable subscription;
         public string folderName;
-        public Action<string> callback;
+        public Action<Dictionary<string, object>> callback;
         string observerId = Guid.NewGuid().ToString();
         string observerDataJson;
-        private Dictionary<string, string> dataDictionary = new Dictionary<string, string>();
+        private Dictionary<string, object> dataDictionary = new Dictionary<string, object>();
         public string updatedData;
         ChildQuery observingFolder;
+
+        // Used for the checking thread
+        private bool isListening = false;
+        // The frequency with which the observer checks the database for updates we may have missed
+        private int checkingInterval = 10000;
 
         Debouncer debouncer = Debouncer.GetInstance();
 
@@ -50,7 +55,7 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="_updateEvent"></param>
         /// <returns></returns>
-        public async Task Subscribe(Action<string> _callback)
+        public async Task Subscribe(Action<Dictionary<string, object>> _callback)
         {
             callback = _callback;
             
@@ -84,12 +89,15 @@ namespace realtimeLogic
                     // Debouncer starts a timer that will wait to process the updates until the timer expires
                     debouncer.Debounce(() =>
                     {
-                        updatedData = GetData();
-                        _callback(updatedData);
+                        /*updatedData = GetData();*/
+                        // copy the dataDictionary
+                        _callback(dataDictionary);
                     });
                 },
                 ex => Console.WriteLine($"Observer error: {ex.Message}"));
             Console.WriteLine($"Subscribed to \"{folderName}\"");
+            isListening = true;
+            //_ = Task.Run(async () => { await CheckingThread(); });
 
         }
 
@@ -109,6 +117,8 @@ namespace realtimeLogic
                 Console.WriteLine("No subscription to unsubscribe from");
                 return;
             }
+
+            isListening = false;
         }
 
         /// <summary>
@@ -148,11 +158,27 @@ namespace realtimeLogic
                 {
                     Console.WriteLine($"Updating existing data for {key}");
                     dataDictionary[key] = _firebaseEvent.Object.ToString();
+                    // Check if the is_deleted boolean is true and remove the data from the dictionary
+                    JObject data = JObject.Parse(_firebaseEvent.Object.ToString());
+                    if (data.ContainsKey("is_deleted"))
+                    {
+                        if (data["is_deleted"].ToObject<bool>())
+                        {
+                            Console.WriteLine($"Deleting data for {key}");
+                            dataDictionary.Remove(key);
+                        }
+                    }
                 }
                 else
                 {
-                    Console.WriteLine($"Adding new data for {key}");
-                    dataDictionary.Add(key, _firebaseEvent.Object.ToString());
+                    JObject data = JObject.Parse(_firebaseEvent.Object.ToString());
+                    if (data.ContainsKey("is_deleted"))
+                    {
+                        if (!data["is_deleted"].ToObject<bool>())
+                        {
+                            dataDictionary.Add(key, _firebaseEvent.Object.ToString());
+                        }
+                    }
                 }
             }
             else if (_firebaseEvent.EventType == FirebaseEventType.Delete)
@@ -166,15 +192,53 @@ namespace realtimeLogic
         }
 
         /// <summary>
+        /// Periodically checks the database to see if we missed any updates
+        /// </summary>
+        /// <returns></returns>
+        public async Task CheckingThread()
+        {
+            while (isListening)
+            {
+                // Wait for the checking interval
+                await Task.Delay(checkingInterval);
+                bool hasUpdates = false;
+                // pull the data from the database
+                var response = await observingFolder.OnceAsJsonAsync();
+                if (response != null)
+                {
+                    JObject data = JObject.Parse(response.ToString());
+                    // check if the data is different from the local data
+                    foreach (var item in data)
+                    {
+                        if (dataDictionary.ContainsKey(item.Key))
+                        {
+                            if (dataDictionary[item.Key] != item.Value.ToString())
+                            {
+                                // update the local data
+                                dataDictionary[item.Key] = item.Value.ToString();
+                                hasUpdates = true;
+                            }
+                        }
+                        else
+                        {
+                            // add the new data to the local data
+                            dataDictionary.Add(item.Key, item.Value.ToString());
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Copies the data dictionary, locks the thread while copying, and returns the copy as a string
         /// </summary>
         /// <returns></returns>
         public string GetData()
         {
-            Dictionary<string, string> snapshot;
+            Dictionary<string, object> snapshot;
             lock (dataDictionary)
             {
-                snapshot = new Dictionary<string, string>(dataDictionary);
+                snapshot = new Dictionary<string, object>(dataDictionary);
             }
             return JsonConvert.SerializeObject(snapshot);
         }
