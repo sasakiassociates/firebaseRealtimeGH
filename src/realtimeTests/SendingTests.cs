@@ -22,7 +22,7 @@ namespace realtimeTests
             baseNode = $"bases/{projectName}/marker";
             credentials.SetSharedCredentials(keyPath, databaseURL, baseNode);
 
-            repository = new Repository();
+            repository = new Repository("test");
         }
 
         [TearDown]
@@ -37,15 +37,13 @@ namespace realtimeTests
             string destination = "test";
             string testJson = "test";
             await repository.PutAsync(destination, testJson);
+            await repository.DeleteNodeAsync(destination);
         }
 
         [Test]
         public async Task SubscribeTest()
         {
-            await repository.Subscribe("", async (data) =>
-            {
-                Console.WriteLine(data);
-            });
+            await repository.Subscribe();
 
             // Sleep for 10 seconds to allow the subscription to run
             await Task.Delay(10000);

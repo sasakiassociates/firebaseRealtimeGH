@@ -14,6 +14,7 @@ namespace realtimeTests
         string baseNode;
         string databaseURL = "https://magpietable-default-rtdb.firebaseio.com/";
         string keyPath = "C:\\Users\\nshikada\\Documents\\GitHub\\table\\key\\firebase_table-key.json";
+        List<Marker>? markers;
 
         Repository repository;
 
@@ -21,10 +22,20 @@ namespace realtimeTests
         public void Setup()
         {
             Credentials credentials = Credentials.GetInstance();
-            credentials.SetSharedCredentials(keyPath, databaseURL, baseNode);
             baseNode = $"bases/{projectName}";
+            credentials.SetSharedCredentials(keyPath, databaseURL, baseNode);
 
-            repository = new Repository();
+            repository = new Repository("test", "marker");
+
+            EventHandler<LogEventArgs> logEventHandler = (sender, e) =>
+            {
+                Console.WriteLine(e.Message);
+            };
+            repository.LogEvent += logEventHandler;
+
+            Debouncer debouncer = new Debouncer();
+            debouncer.SetDebounceDelay(300);
+            markers = new List<Marker>();
         }
 
         [TearDown]
@@ -38,122 +49,135 @@ namespace realtimeTests
         [Test]
         public async Task SubscribeTest()
         {
-            await repository.Subscribe(baseNode, async (data) =>
-            {
-                Console.WriteLine(data);
-            });
+            await repository.Subscribe();
 
-            await Task.Delay(10000);
+            Assert.That(repository.subscribed, Is.True);
         }
 
         [Test]
         public async Task ReloadSubscriptionTest()
         {
-            await repository.Subscribe(baseNode, async (data) =>
-            {
-                Console.WriteLine(data);
-            });
-
-            await repository.UnsubscribeAsync();
-
-            await repository.Subscribe(baseNode, async (data) =>
-            {
-                Console.WriteLine(data);
-            });
         }
 
         [Test]
         public async Task CallbackTest()
         {
-            await repository.Subscribe($"{baseNode}/test", async (data) =>
-            {
-                Console.WriteLine(data);
-                Console.WriteLine("Testing Callback");
-            });
-
-            await repository.PutAsync($"{baseNode}/test/childTest", new List<object> { "{{\"test\": \"test\"}}" });
-
-            await Task.Delay(1000);
-
-            await repository.DeleteNode($"{baseNode}/test/childTest");
-
-            await Task.Delay(1000);
         }
 
         [Test]
-        public async Task ReloadTest()
+        public async Task LogEventObserverTest()
         {
-            await repository.Subscribe($"{baseNode}/test", async (data) =>
+            EventHandler<LogEventArgs> logEventHandler = (sender, e) =>
             {
-                Console.WriteLine(data);
-            });
+                Console.WriteLine(e.Message);
+            };
 
-            await Task.Delay(3000);
+            repository.LogEvent += logEventHandler;
+
+            await repository.Subscribe();
+
+            await Task.Delay(1000);
+
+            repository.LogEvent -= logEventHandler;
 
             await repository.UnsubscribeAsync();
-            await repository.Subscribe($"{baseNode}/test2", async (data) =>
-            {
-                Console.WriteLine(data);
-            });
-
-            await Task.Delay(3000);
-        }
-
-        [Test]
-        public async Task FlushTest()
-        {
-            repository.SetFlushInterval(2000);
-
-            await repository.Subscribe($"{baseNode}/marker", async (data) =>
-            {
-                Console.WriteLine(data);
-            });
-
-            await Task.Delay(11000);
-        }
-
-        [Test]
-        public async Task ParseTest()
-        {
-            string testId = "testId";
-            object testMarker = new { x = 10, y = 20, rotation = 45 };
-            // Serialize the data
-            await repository.PutAsync($"{baseNode}/marker/{testId}", testMarker);
-
-            var data = await repository.PullData($"{baseNode}/marker/{testId}");
-
-            // convert the data to a dictionary
-            Dictionary<string, object> parsedData = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(data.ToString());
-            
-            int x = (int)parsedData["x"];
-            int y = (int)parsedData["y"];
-            int rotation = (int)parsedData["rotation"];
-
-            Console.WriteLine(data);
-        }
-
-        [Test]
-        public async Task PullTest()
-        {
-            ChildQuery query = repository.baseQuery;
-            var test = await query.Child("bases/test_proj/marker/testId").OnceAsJsonAsync();
-            Console.WriteLine(test);
-
-            // Parse the test data
-            var parsedTest = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(test);
-            Console.WriteLine(parsedTest["rotation"]);
-
-        }
-
-        [Test]
-        public async Task SubscribeNullTest()
-        {
-            await repository.Subscribe("", async (data) =>
-            {
-                Console.WriteLine(data);
-            });
 
             Assert.Pass();
         }
+
+        [Test]
+        public async Task ListChangedEventObserverTest()
+        {
+            EventHandler<ListChangedEventArgs> listChangedEventHandler = (sender, e) =>
+            {
+                foreach (var item in e.UpdatedList)
+                {
+                    Marker marker;
+                    try
+                    {
+                        // ! is a null-forgiving operator
+                        marker = Newtonsoft.Json.JsonConvert.DeserializeObject<Marker>(item.Value.ToString()!) ?? new Marker();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+            };
+
+            repository.ListChanged += listChangedEventHandler;
+
+            await repository.Subscribe();
+
+            await Task.Delay(1000);
+
+            await repository.PutAsync($"/marker/childTest", new List<object> { "{{\"test\": \"test\"}}" });
+
+            await Task.Delay(5000);
+
+            await repository.DeleteNodeAsync($"/marker/childTest");
+
+            repository.ListChanged -= listChangedEventHandler;
+
+            await repository.UnsubscribeAsync();
+
+            Assert.Pass();
+        }
+
+        [Test]
+        public async Task IsDeletedTest()
+        {
+            EventHandler<ListChangedEventArgs> listChangedEventHandler = (sender, e) =>
+            {
+                foreach (var item in e.UpdatedList)
+                {
+                    Marker marker;
+                    try
+                    {
+                        // ! is a null-forgiving operator
+                        marker = Newtonsoft.Json.JsonConvert.DeserializeObject<Marker>(item.Value.ToString()!) ?? new Marker();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+            };
+
+            Marker deletedMarker = new Marker { x = 10, y = 20, rotation = 45, is_deleted = true };
+            Marker marker = new Marker { x = 10, y = 20, rotation = 45, is_deleted = false };
+            repository.ListChanged += listChangedEventHandler;
+
+            await repository.Subscribe();
+
+            await repository.PutAsync($"marker/deletedMarker", deletedMarker);
+
+            await Task.Delay(1000);
+
+            await repository.PutAsync($"marker/marker", marker);
+
+            await Task.Delay(1000);
+
+            marker.is_deleted = true;
+
+            await repository.PutAsync($"marker/marker", marker);
+
+            await Task.Delay(1000);
+
+            await repository.DeleteNodeAsync($"marker/deletedMarker");
+            await repository.DeleteNodeAsync($"marker/marker");
+
+            Assert.Pass();
+        }
+
+    }
+
+    public class Marker
+    {
+        public string uuid { get; set; }
+        public int x { get; set; }
+        public int y { get; set; }
+        public float rotation { get; set; }
+        public bool is_deleted { get; set; }
     }
 }

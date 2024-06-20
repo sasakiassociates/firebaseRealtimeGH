@@ -1,10 +1,12 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
+using Firebase.Database.Streaming;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Reactive;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,15 +17,28 @@ namespace realtimeLogic
     {
         private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
         public ChildQuery baseQuery;                                                // Instance of the client to communicate with Firebase 
-        DatabaseObserver observer;
+
+        IDisposable subscription;
+        IDisposable deletionSubscription;
+        
+        // The name we'll put under the listener node when we subscribe
+        public string _name;
 
         public bool authorized = false;                                             // Whether the user is authorized to access the database
         public bool subscribed = false;                                             // Whether the user is subscribed to the database
+        Debouncer debouncer = new Debouncer();                                      // Debouncer to prevent multiple updates from firing
 
-        public int flushInterval = 10000;                                           // Interval to flush the data
+        private ChildQuery observingNode;                                           // The node this repository is observing
 
-        public Repository()
+        private Dictionary<string, object> _currentItems;
+
+        // Event handlers for notifying changes
+        public event EventHandler<ListChangedEventArgs> ListChanged;
+        public event EventHandler<LogEventArgs> LogEvent;
+
+        public Repository(string name, string targetNode = "")
         {
+            _name = name;
             _credentials = Credentials.GetInstance();
             _credentials.CredentialsChanged += OnCredentialsChanged;                // Subscribe to the credentials changed event
             if (_credentials.baseChildQuery != null)
@@ -31,77 +46,149 @@ namespace realtimeLogic
                 baseQuery = _credentials.baseChildQuery;
                 authorized = true;
             }
+            _currentItems = new Dictionary<string, object>();
+            SetTargetNode(targetNode);
         }
 
-        public async Task SetTargetNode(string targetNode)
+        /// <summary>
+        /// Sets the target node for this repository. Should be called before subscribing to the database.
+        /// </summary>
+        /// <param name="targetNode"></param>
+        public async void SetTargetNode(string targetNode)
         {
-            Action<Dictionary<string, object>> callback = observer.callback;
-
-            await observer.UnsubscribeAsync();
-            observer = new DatabaseObserver(baseQuery, targetNode);
-            await observer.Subscribe(callback);
+            observingNode = baseQuery.Child(targetNode);
+            if (!authorized)
+            {
+                Log("Not authorized to access the database");
+                return;
+            }
+            if (subscribed)
+            {
+                await UnsubscribeAsync();
+                await Subscribe();
+            }
         }
 
         /// <summary>
         /// Makes a subscription to the database and listens for updates to the target folder. You can set callback functions on this class to run when the data is updated.
         /// </summary>
-        /// <param name="targetNodes"></param>
         /// <returns></returns>
-        /// TODO for now, we'll limit the target nodes to a single node (multiple nodes might have caused race conditions)
-        public async Task Subscribe(string targetNode, Action<Dictionary<string, object>> callback)
+        public async Task Subscribe()
         {
             if (!authorized)
             {
-                Console.WriteLine("Not authorized to access the database");
+                Log("Not authorized to access the database");
                 return;
             }
+
             // Initial Pull
-            Dictionary<string, object> dataDict = await baseQuery.Child(targetNode).OnceSingleAsync<Dictionary<string, object>>();
-            string data = JsonConvert.SerializeObject(dataDict);
-            callback(dataDict);
+            _currentItems = await observingNode.OnceSingleAsync<Dictionary<string, object>>();
+            if (_currentItems == null)
+            {
+                _currentItems = new Dictionary<string, object>();
+            }
+            else
+            {
+                ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems));
+            }
 
-            observer = new DatabaseObserver(baseQuery, targetNode);
-            await observer.Subscribe(callback);
-            subscribed = true;
+            string date = DateTime.Now.ToString("yyyy-MM-dd");
+            string time = DateTime.Now.ToString("HH:mm:ss");
+            // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is already data in the folder)
+            await observingNode.Child($"listeners/{_name}").PutAsync($"{{\"Subscribed at\": \"{date}|{time}\"}}");
 
-            // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is data in the folder)
-            await observingFolder.Child($"listeners/{observerId}").PutAsync(observerDataJson);
+            try
+            {
+                // Listen for new items added to the database
+                subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
+                    .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
+                // Listen for items removed from the database
+                deletionSubscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.Delete)
+                    .Subscribe(f => HandleItemDeleted(f.Key, f.Object));
 
-            subscription = observingFolder
-                .AsObservable<JToken>()
-                .Subscribe(_firebaseEvent =>
-                {
-                    Console.WriteLine($"Received event: {_firebaseEvent.EventType} {folderName} {_firebaseEvent.Key} {_firebaseEvent.Object}");
-                    // Use the key (e.g., object ID) to identify each object
-                    string objectId = _firebaseEvent.Key;
-                    JToken data = _firebaseEvent.Object;
+                Log("Subscribed");
+                subscribed = true;
+            }
+            catch (Exception e)
+            {
+                Log($"Error subscribing: {e.Message}");
+            }
+        }
 
-                    // TODO find a better way to handle these cases
-                    if (objectId == "listeners")
-                    {
-                        return;
-                    }
-                    if (objectId == "update_interval")
-                    {
-                        // Convert the data to an int
-                        int milliseconds = int.Parse(data.ToString());
-                        debouncer.SetDebounceDelay(milliseconds);
-                    }
+        /// <summary>
+        /// Called when an object in the subscribed node is updated
+        /// </summary>
+        private void HandleItemAddedOrUpdated(string key, JToken item)
+        {
+            if (item == null)
+            {
+                Log($"Item {key} is null");
+                return;
+            }
 
-                    ParseEvent(_firebaseEvent);
+            // This is a special case for the update_interval node so we can control the frequency of updates
+            if (key == "update_interval")
+            {
+                // Convert the data to an int
+                int milliseconds = int.Parse(item.ToString());
+                debouncer.SetDebounceDelay(milliseconds);
+                return;
+            }
 
-                    // TODO fix the Debounce function. Currently it misses updates frequently (could be Timer instantiation issue)
-                    // Debouncer starts a timer that will wait to process the updates until the timer expires
-                    debouncer.Debounce(() =>
-                    {
-                        /*updatedData = GetData();*/
-                        // copy the dataDictionary
-                        _callback(dataDictionary);
-                    });
-                },
-                ex => Console.WriteLine($"Observer error: {ex.Message}"));
-            Console.WriteLine($"Subscribed to \"{folderName}\"");
-            isListening = true;
+            // check the is_deleted field to see if we should delete the item
+            if (item["is_deleted"] != null && (bool)item["is_deleted"])
+            {
+                HandleItemDeleted(key, item);
+                return;
+            }
+
+            if (_currentItems.ContainsKey(key))
+            {
+                _currentItems[key] = item;
+            }
+            else
+            {
+                _currentItems.Add(key, item);
+                Log($"Item added: {key}");
+            }
+            OnListChanged();
+        }
+
+        /// <summary>
+        /// Called when an object in the subscribed node is deleted
+        /// </summary>
+        private void HandleItemDeleted(string key, JToken item)
+        {
+            if (item == null)
+            {
+                Log($"Item {key} is null");
+                return;
+            }
+
+            if (_currentItems.ContainsKey(key))
+            {
+                _currentItems.Remove(key);
+                OnListChanged();
+                Log($"Item removed: {key}");
+            }
+        }
+
+        /// <summary>
+        /// Will call the ListChanged event and debounce the callback function
+        /// </summary>
+        protected virtual void OnListChanged()
+        {
+            // After the debounce period, call the ListChanged event
+            debouncer.Debounce(() => ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems)));
+        }
+
+        /// <summary>
+        /// Will log the given message to listeners to the LogEvent
+        /// </summary>
+        /// <param name="message"></param>
+        protected virtual void Log(string message)
+        {
+            LogEvent?.Invoke(this, new LogEventArgs(message));
         }
 
         /// <summary>
@@ -112,11 +199,14 @@ namespace realtimeLogic
         {
             if (subscribed) 
             {
-                await observer.UnsubscribeAsync();
+                await observingNode.Child($"listeners/{_name}").DeleteAsync();
+                subscription.Dispose();
+                deletionSubscription.Dispose();
+                Log("Unsubscribed");
             }
             else
             {
-                Console.WriteLine("No subscription to unsubscribe from");
+                Log("No subscription to unsubscribe from");
             }
 
             subscribed = false;
@@ -134,7 +224,7 @@ namespace realtimeLogic
             authorized = false;
             if (_pathToKeyFile == null && _firebaseUrl == null)
             {
-                // Resubscribe to the shared credentials
+                // Resubscribe to the shared credentials if no local credentials are provided
                 _credentials.CredentialsChanged += OnCredentialsChanged;
 
                 if (_credentials.baseChildQuery != null)
@@ -146,6 +236,7 @@ namespace realtimeLogic
             }
             else
             {
+                // Unsubscribe from the shared credentials
                 _credentials.CredentialsChanged -= OnCredentialsChanged;
 
                 FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => Credentials.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
@@ -160,7 +251,7 @@ namespace realtimeLogic
         /// </summary>
         /// <param name="node"></param>
         /// <returns></returns>
-        public async Task DeleteNode(string node)
+        public async Task DeleteNodeAsync(string node)
         {
             await baseQuery.Child(node).DeleteAsync();
         }
@@ -193,16 +284,11 @@ namespace realtimeLogic
         /// <summary>
         /// Runs whenever the Credentials class fires the CredentialsChanged event. We need to set the baseQuery to the new credentials and recreate the observers if we have any.
         /// </summary>
-        public void OnCredentialsChanged()
+        public async void OnCredentialsChanged()
         {
-            Action<Dictionary<string, object>> action = null;
-            string folder = "";
-
             if (subscribed)
             {
-                action = observer.callback;
-                folder = observer.folderName;
-                Task.Run(async () => { await UnsubscribeAsync(); }).Wait();
+                await UnsubscribeAsync();
             }
 
             baseQuery = _credentials.baseChildQuery;
@@ -213,33 +299,17 @@ namespace realtimeLogic
 
             if (subscribed)
             {
-                Task.Run(async () => { await Subscribe(folder ,action); }).Wait();
+                await Subscribe();
             }
         }
 
         /// <summary>
-        /// Flush the local current data (workaround for bugs when the pull misses data)
+        /// Reload the subscription to the database
         /// </summary>
-        public async Task FlushThread()
+        public async void Reload()
         {
-            while (subscribed)
-            {
-                // Wait the flush interval
-                await Task.Delay(flushInterval);
-
-                observer.ClearData();
-
-                Console.WriteLine("Flushed data");
-            }
-        }
-
-        /// <summary>
-        /// Sets the time period in milliseconds to periodically flush the local data
-        /// </summary>
-        /// <param name="interval"></param>
-        public void SetFlushInterval(int interval)
-        {
-            flushInterval = interval;
+            await UnsubscribeAsync();
+            await Subscribe();
         }
     }
 }

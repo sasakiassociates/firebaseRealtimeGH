@@ -3,19 +3,13 @@ using System.Threading;
 
 namespace realtimeLogic
 {
-    internal class Debouncer
+    public class Debouncer
     {
-        private static Debouncer instance = new Debouncer();
         private readonly object lockObject = new object();
         private Timer timer;
         public int update_interval = 33;
 
-        private Debouncer() { }
-
-        public static Debouncer GetInstance()
-        {
-            return instance;
-        }
+        public Debouncer() { }
 
         public void SetDebounceDelay(int milliseconds)
         {
