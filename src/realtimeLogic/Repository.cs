@@ -15,6 +15,8 @@ namespace realtimeLogic
 {
     public class Repository
     {
+        public event Action UpdatedCredentials;                                     // Reference this action to reload the parent component when the credentials change
+
         private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
         public ChildQuery baseQuery;                                                // Instance of the client to communicate with Firebase 
 
@@ -81,15 +83,22 @@ namespace realtimeLogic
                 return;
             }
 
-            // Initial Pull
-            _currentItems = await observingNode.OnceSingleAsync<Dictionary<string, object>>();
-            if (_currentItems == null)
+            try
             {
-                _currentItems = new Dictionary<string, object>();
+                // Initial Pull
+                _currentItems = await observingNode.OnceSingleAsync<Dictionary<string, object>>();
+                if (_currentItems == null)
+                {
+                    _currentItems = new Dictionary<string, object>();
+                }
+                else
+                {
+                    ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems));
+                }
             }
-            else
+            catch (Exception e)
             {
-                ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems));
+                Log($"Error pulling data: {e.Message}");
             }
 
             string date = DateTime.Now.ToString("yyyy-MM-dd");
@@ -115,9 +124,7 @@ namespace realtimeLogic
             }
         }
 
-        /// <summary>
-        /// Called when an object in the subscribed node is updated
-        /// </summary>
+        // Called when an object in the subscribed node is updated
         private void HandleItemAddedOrUpdated(string key, JToken item)
         {
             if (item == null)
@@ -135,21 +142,24 @@ namespace realtimeLogic
                 return;
             }
 
-            // check the is_deleted field to see if we should delete the item
-            if (item["is_deleted"] != null && (bool)item["is_deleted"])
+            if (item.Type == JTokenType.Object)
             {
-                HandleItemDeleted(key, item);
-                return;
-            }
+                // check the is_deleted field to see if we should delete the item
+                if (item["is_deleted"] != null && item["is_deleted"].Type == JTokenType.Boolean && (bool)item["is_deleted"])
+                {
+                    HandleItemDeleted(key, item);
+                    return;
+                }
 
-            if (_currentItems.ContainsKey(key))
-            {
-                _currentItems[key] = item;
-            }
-            else
-            {
-                _currentItems.Add(key, item);
-                Log($"Item added: {key}");
+                if (_currentItems.ContainsKey(key))
+                {
+                    _currentItems[key] = item;
+                }
+                else
+                {
+                    _currentItems.Add(key, item);
+                    Log($"Item added: {key}");
+                }
             }
             OnListChanged();
         }
@@ -169,7 +179,7 @@ namespace realtimeLogic
             {
                 _currentItems.Remove(key);
                 OnListChanged();
-                Log($"Item removed: {key}");
+                /*Log($"Item removed: {key}");*/
             }
         }
 
@@ -301,6 +311,8 @@ namespace realtimeLogic
             {
                 await Subscribe();
             }
+
+            UpdatedCredentials?.Invoke();
         }
 
         /// <summary>
