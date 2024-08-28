@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text;
@@ -83,24 +84,6 @@ namespace realtimeLogic
                 return;
             }
 
-            try
-            {
-                // Initial Pull
-                _currentItems = await observingNode.OnceSingleAsync<Dictionary<string, object>>();
-                if (_currentItems == null)
-                {
-                    _currentItems = new Dictionary<string, object>();
-                }
-                else
-                {
-                    ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems));
-                }
-            }
-            catch (Exception e)
-            {
-                Log($"Error pulling data: {e.Message}");
-            }
-
             string date = DateTime.Now.ToString("yyyy-MM-dd");
             string time = DateTime.Now.ToString("HH:mm:ss");
             // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is already data in the folder)
@@ -111,9 +94,9 @@ namespace realtimeLogic
                 // Listen for new items added to the database
                 subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
                     .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
-                // Listen for items removed from the database
+                /*// Listen for items removed from the database
                 deletionSubscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.Delete)
-                    .Subscribe(f => HandleItemDeleted(f.Key, f.Object));
+                    .Subscribe(f => HandleItemDeleted(f.Key, f.Object));*/
 
                 Log("Subscribed");
                 subscribed = true;
@@ -125,6 +108,7 @@ namespace realtimeLogic
         }
 
         // Called when an object in the subscribed node is updated
+        // TODO FIX-PAUSE this might be getting called at the same time as the HandleItemDeleted function and breaking the code
         private void HandleItemAddedOrUpdated(string key, JToken item)
         {
             if (item == null)
@@ -133,7 +117,7 @@ namespace realtimeLogic
                 return;
             }
 
-            // This is a special case for the update_interval node so we can control the frequency of updates
+            // This is a special case for the update_interval node so we can control the frequency of updates using a variable on the database
             if (key == "update_interval")
             {
                 // Convert the data to an int
@@ -142,10 +126,12 @@ namespace realtimeLogic
                 return;
             }
 
+            // ISSUE this might be the thing blocking the code when there are multiple updates in a single moment
+            // TODO FIX-PAUSE add error handling
             if (item.Type == JTokenType.Object)
             {
-                // check the is_deleted field to see if we should delete the item
-                if (item["is_deleted"] != null && item["is_deleted"].Type == JTokenType.Boolean && (bool)item["is_deleted"])
+                // check the is_deleted field to see if we should delete the item from the local representation
+                if (item["is_deleted"] != null && (bool)item["is_deleted"])
                 {
                     HandleItemDeleted(key, item);
                     return;
@@ -167,6 +153,7 @@ namespace realtimeLogic
         /// <summary>
         /// Called when an object in the subscribed node is deleted
         /// </summary>
+        // TODO FIX-PAUSE this might be getting called at the same time as the HandleItemAddedOrUpdated function and breaking the code
         private void HandleItemDeleted(string key, JToken item)
         {
             if (item == null)
@@ -189,7 +176,12 @@ namespace realtimeLogic
         protected virtual void OnListChanged()
         {
             // After the debounce period, call the ListChanged event
-            debouncer.Debounce(() => ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems)));
+            // TODO PAUSE-FIX this might be the thing blocking the code when there are multiple updates in a single moment
+            // Use a lock? Nick "not right away, but check if the issue is in this area"
+            // TODO Fix this so that the debouncer is only called if there hasn't already been called
+            Dictionary<string, object> temp = new Dictionary<string, object>(_currentItems);
+
+            debouncer.Debounce(() => ListChanged?.Invoke(this, new ListChangedEventArgs(temp)));
         }
 
         /// <summary>
@@ -211,7 +203,7 @@ namespace realtimeLogic
             {
                 await observingNode.Child($"listeners/{_name}").DeleteAsync();
                 subscription.Dispose();
-                deletionSubscription.Dispose();
+                /*deletionSubscription.Dispose();*/
                 Log("Unsubscribed");
             }
             else
