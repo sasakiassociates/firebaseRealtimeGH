@@ -17,12 +17,6 @@ namespace realtimeLogic
 
         public void Debounce(Action action)
         {
-            // TODO add some runtime messages to see how many times this has been called
-            // Add timestamp when it is called and when it is finished
-            // There is a queue thing happening here where the actions are waiting for the lock to be released and only passing when it gets lucky
-            // TODO add log here for showing it is still locked
-            // Add a counter? to organize the queue of actions that are waiting for the lock to be released
-
             if (timer == null)
             {
                 timer = new Timer(state =>
