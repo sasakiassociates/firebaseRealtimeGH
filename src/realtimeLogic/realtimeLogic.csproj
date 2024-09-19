@@ -9,4 +9,8 @@
     <PackageReference Include="Google.Apis.Auth" Version="1.64.0" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;&#xD;&#xA;Copy &quot;$(TargetDir)Firebase.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;&#xD;&#xA;Copy &quot;$(TargetDir)Google.Apis.Auth.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;&#xD;&#xA;Copy &quot;$(TargetDir)Google.Apis.Core.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;" />
+  </Target>
+
 </Project>
