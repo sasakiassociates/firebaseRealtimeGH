@@ -2,7 +2,22 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Version>$(VersionPrefix)</Version>
+    <Authors>kaipocraft</Authors>
+    <Description>A library of logic to integrate Firebase Realtime Database into Rhinoceros 3D via Grasshopper</Description>
+    <PackageProjectUrl>https://github.com/sasakiassociates/firebaseRealtimeGH</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/sasakiassociates/firebaseRealtimeGH</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>firebase; realtime; rhinoceros; grasshopper</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FirebaseDatabase.net" Version="4.2.0" />
@@ -10,7 +25,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;&#xD;&#xA;Copy &quot;$(TargetDir)Firebase.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;&#xD;&#xA;Copy &quot;$(TargetDir)Google.Apis.Auth.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;&#xD;&#xA;Copy &quot;$(TargetDir)Google.Apis.Core.dll&quot; &quot;C:\Users\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;" />
+    <Exec Command="Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;\\S00769FR01\users$\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;" />
   </Target>
 
 </Project>

@@ -58,6 +58,7 @@ namespace realtimeLogic
         /// <param name="targetNode"></param>
         public async void SetTargetNode(string targetNode)
         {
+            // TODO this causes an error if the Connect component is not already placed
             observingNode = baseQuery.Child(targetNode);
             if (!authorized)
             {
