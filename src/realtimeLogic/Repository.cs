@@ -1,21 +1,19 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
 using Firebase.Database.Streaming;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace realtimeLogic
 {
     public class Repository
     {
+        string _targetNode;
+        Logger _logger;
         public event Action UpdatedCredentials;                                     // Reference this action to reload the parent component when the credentials change
 
         private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
@@ -36,20 +34,38 @@ namespace realtimeLogic
 
         // Event handlers for notifying changes
         public event EventHandler<ListChangedEventArgs> ListChanged;
-        public event EventHandler<LogEventArgs> LogEvent;
 
         public Repository(string name, string targetNode = "")
         {
-            _name = name;
-            _credentials = Credentials.GetInstance();
-            _credentials.CredentialsChanged += OnCredentialsChanged;                // Subscribe to the credentials changed event
-            if (_credentials.baseChildQuery != null)
+            try
             {
-                baseQuery = _credentials.baseChildQuery;
-                authorized = true;
+                _logger = Logger.GetInstance();
+                Log("Initialized");
+                _name = name;
+                _credentials = Credentials.GetInstance();
+                _credentials.CredentialsChanged += OnCredentialsChanged;                // Subscribe to the credentials changed event
+                if (_credentials.baseChildQuery != null)
+                {
+                    baseQuery = _credentials.baseChildQuery;
+                    authorized = true;
+                }
+                _currentItems = new Dictionary<string, object>();
+                if (baseQuery != null && targetNode != "")
+                {
+                    try
+                    {
+                        SetTargetNode(targetNode);
+                    }
+                    catch
+                    {
+                        Log("Attempted to set target node before the Connect component was placed");
+                    }
+                }
             }
-            _currentItems = new Dictionary<string, object>();
-            SetTargetNode(targetNode);
+            catch (Exception e)
+            {
+                Log($"Error initializing repository: {e.Message}");
+            }
         }
 
         /// <summary>
@@ -58,17 +74,32 @@ namespace realtimeLogic
         /// <param name="targetNode"></param>
         public async void SetTargetNode(string targetNode)
         {
-            // TODO this causes an error if the Connect component is not already placed
-            observingNode = baseQuery.Child(targetNode);
-            if (!authorized)
+            try
             {
-                Log("Not authorized to access the database");
-                return;
+                _targetNode = targetNode.Replace(" ", "_");
+                if (!authorized)
+                {
+                    Log("Not authorized to access the database");
+                    return;
+                }
+                try
+                {
+                    observingNode = baseQuery.Child(targetNode);
+                }
+                catch (Exception e)
+                {
+                    Log($"Error setting target node: {e.Message}");
+                    return;
+                }
+                if (subscribed)
+                {
+                    await UnsubscribeAsync();
+                    await Subscribe();
+                }
             }
-            if (subscribed)
-            {
-                await UnsubscribeAsync();
-                await Subscribe();
+            catch (Exception e)
+            {  
+                Log($"Error setting target node: {e.Message}");
             }
         }
 
@@ -78,29 +109,36 @@ namespace realtimeLogic
         /// <returns></returns>
         public async Task Subscribe()
         {
-            if (!authorized)
-            {
-                Log("Not authorized to access the database");
-                return;
-            }
-
-            string date = DateTime.Now.ToString("yyyy-MM-dd");
-            string time = DateTime.Now.ToString("HH:mm:ss");
-            // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is already data in the folder)
-            await observingNode.Child($"listeners/{_name}").PutAsync($"{{\"Subscribed at\": \"{date}|{time}\"}}");
-
             try
             {
-                // Listen for new items added to the database
-                subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
-                    .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
-                /* Listen for items removed from the database
-                 * Keeping this here in case we want to add an event for when an item is deleted
-                deletionSubscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.Delete)
-                    .Subscribe(f => HandleItemDeleted(f.Key, f.Object));*/
+                if (!authorized)
+                {
+                    Log("Not authorized to access the database");
+                    return;
+                }
 
-                Log("Subscribed");
-                subscribed = true;
+                string date = DateTime.Now.ToString("yyyy-MM-dd");
+                string time = DateTime.Now.ToString("HH:mm:ss");
+                // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is already data in the folder)
+                await observingNode.Child($"listeners/{_name}").PutAsync($"{{\"Subscribed at\": \"{date}|{time}\"}}");
+
+                try
+                {
+                    // Listen for new items added to the database
+                    subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
+                        .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
+                    /* Listen for items removed from the database
+                     * Keeping this here in case we want to add an event for when an item is deleted
+                    deletionSubscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.Delete)
+                        .Subscribe(f => HandleItemDeleted(f.Key, f.Object));*/
+
+                    Log("Subscribed");
+                    subscribed = true;
+                }
+                catch (Exception e)
+                {
+                    Log($"Error subscribing: {e.Message}");
+                }
             }
             catch (Exception e)
             {
@@ -111,42 +149,49 @@ namespace realtimeLogic
         // Called when an object in the subscribed node is updated
         private void HandleItemAddedOrUpdated(string key, JToken item)
         {
-            if (item == null)
+            try
             {
-                Log($"Item {key} is null");
-                return;
-            }
-
-            // This is a special case for the update_interval node so we can control the frequency of updates using a variable on the database
-            if (key == "update_interval")
-            {
-                // Convert the data to an int
-                int milliseconds = int.Parse(item.ToString());
-                debouncer.SetDebounceDelay(milliseconds);
-                return;
-            }
-
-            // ISSUE this might be the thing blocking the code when there are multiple updates in a single moment
-            if (item.Type == JTokenType.Object)
-            {
-                // check the is_deleted field to see if we should delete the item from the local representation
-                if (item["is_deleted"] != null && (bool)item["is_deleted"])
+                if (item == null)
                 {
-                    HandleItemDeleted(key, item);
+                    Log($"Tried to update null item: {key}");
                     return;
                 }
 
-                if (_currentItems.ContainsKey(key))
+                // This is a special case for the update_interval node so we can control the frequency of updates using a variable on the database
+                if (key == "update_interval")
                 {
-                    _currentItems[key] = item;
+                    // Convert the data to an int
+                    int milliseconds = int.Parse(item.ToString());
+                    debouncer.SetDebounceDelay(milliseconds);
+                    return;
                 }
-                else
+
+                // ISSUE this might be the thing blocking the code when there are multiple updates in a single moment
+                if (item.Type == JTokenType.Object)
                 {
-                    _currentItems.Add(key, item);
-                    Log($"Item added: {key}");
+                    // check the is_deleted field to see if we should delete the item from the local representation
+                    if (item["is_deleted"] != null && (bool)item["is_deleted"])
+                    {
+                        HandleItemDeleted(key, item);
+                        return;
+                    }
+
+                    if (_currentItems.ContainsKey(key))
+                    {
+                        _currentItems[key] = item;
+                    }
+                    else
+                    {
+                        _currentItems.Add(key, item);
+                        //Log($"Item added: {key}");
+                    }
                 }
+                OnListChanged();
             }
-            OnListChanged();
+            catch (Exception e)
+            {
+                Log($"Error handling item added or updated: {e.Message}");
+            }
         }
 
         /// <summary>
@@ -154,17 +199,24 @@ namespace realtimeLogic
         /// </summary>
         private void HandleItemDeleted(string key, JToken item)
         {
-            if (item == null)
+            try
             {
-                Log($"Item {key} is null");
-                return;
-            }
+                if (item == null)
+                {
+                    Log($"Tried to delete null item: {key}");
+                    return;
+                }
 
-            if (_currentItems.ContainsKey(key))
+                if (_currentItems.ContainsKey(key))
+                {
+                    _currentItems.Remove(key);
+                    OnListChanged();
+                    //Log($"Item removed: {key}");
+                }
+            }
+            catch (Exception e)
             {
-                _currentItems.Remove(key);
-                OnListChanged();
-                Log($"Item removed: {key}");
+                Log($"Error handling item deleted: {e.Message}");
             }
         }
 
@@ -173,8 +225,15 @@ namespace realtimeLogic
         /// </summary>
         protected virtual void OnListChanged()
         {
-            // After the debounce period, call the ListChanged event
-            debouncer.Debounce(() => ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems)));
+            try
+            {
+                // After the debounce period, call the ListChanged event
+                debouncer.Debounce(() => ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems)));
+            }
+            catch (Exception e)
+            {
+                Log($"Error calling ListChanged event: {e.Message}");
+            }
         }
 
         /// <summary>
@@ -183,7 +242,7 @@ namespace realtimeLogic
         /// <param name="message"></param>
         protected virtual void Log(string message)
         {
-            LogEvent?.Invoke(this, new LogEventArgs(message));
+            _logger.Log(this, message);
         }
 
         /// <summary>
@@ -192,18 +251,25 @@ namespace realtimeLogic
         /// <returns></returns>
         public async Task UnsubscribeAsync()
         {
-            if (subscribed) 
+            try
             {
-                await observingNode.Child($"listeners/{_name}").DeleteAsync();
-                subscription.Dispose();
-                Log("Unsubscribed");
-            }
-            else
-            {
-                Log("No subscription to unsubscribe from");
-            }
+                if (subscribed) 
+                {
+                    await observingNode.Child($"listeners/{_name}").DeleteAsync();
+                    subscription.Dispose();
+                    Log("Unsubscribed");
+                }
+                else
+                {
+                    Log("No subscription to unsubscribe from");
+                }
 
-            subscribed = false;
+                subscribed = false;
+            }
+            catch (Exception e)
+            {
+                Log($"Error unsubscribing: {e.Message}");
+            }
         }
 
         /// <summary>
@@ -215,29 +281,35 @@ namespace realtimeLogic
         /// <returns></returns>
         public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
         {
-            authorized = false;
-            if (_pathToKeyFile == null && _firebaseUrl == null)
+            try
             {
-                // Resubscribe to the shared credentials if no local credentials are provided
-                _credentials.CredentialsChanged += OnCredentialsChanged;
-
-                if (_credentials.baseChildQuery != null)
+                authorized = false;
+                if (_pathToKeyFile == null && _firebaseUrl == null)
                 {
-                    baseQuery = _credentials.baseChildQuery;
+                    // Resubscribe to the shared credentials if no local credentials are provided
+                    _credentials.CredentialsChanged += OnCredentialsChanged;
+
+                    if (_credentials.baseChildQuery != null)
+                    {
+                        baseQuery = _credentials.baseChildQuery;
+                        authorized = true;
+                    }
+                    return;
+                }
+                else
+                {
+                    // Unsubscribe from the shared credentials
+                    _credentials.CredentialsChanged -= OnCredentialsChanged;
+
+                    FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => Credentials.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                    baseQuery = newClient.Child(basePath);
                     authorized = true;
                 }
-                return;
             }
-            else
+            catch
             {
-                // Unsubscribe from the shared credentials
-                _credentials.CredentialsChanged -= OnCredentialsChanged;
-
-                FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => Credentials.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
-                baseQuery = newClient.Child(basePath);
-                authorized = true;
+                Log("Error overriding local connection");
             }
-
         }
 
         /// <summary>
@@ -247,7 +319,14 @@ namespace realtimeLogic
         /// <returns></returns>
         public async Task DeleteNodeAsync(string node)
         {
-            await baseQuery.Child(node).DeleteAsync();
+            try
+            {
+                await baseQuery.Child(node).DeleteAsync();
+            }
+            catch (Exception e)
+            {
+                Log($"Error deleting node: {e.Message}");
+            }
         }
 
         /// <summary>
@@ -262,7 +341,14 @@ namespace realtimeLogic
         }*/
         public async Task PutAsync(string destination, object data)
         {
-            await baseQuery.Child(destination).PutAsync(data);
+            try
+            {
+                await baseQuery.Child(destination).PutAsync(data);
+            }
+            catch (Exception e)
+            {
+                Log($"Error putting data: {e.Message}");
+            }
         }
 
         /// <summary>
@@ -271,8 +357,16 @@ namespace realtimeLogic
         /// <param name="destination"></param>
         public async Task<object> PullData(string destination)
         {
-            var response = await baseQuery.Child(destination).OnceAsJsonAsync();
-            return response;
+            try
+            {
+                var response = await baseQuery.Child(destination).OnceAsJsonAsync();
+                return response;
+            }
+            catch (Exception e)
+            {
+                Log($"Error pulling data: {e.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -280,23 +374,32 @@ namespace realtimeLogic
         /// </summary>
         public async void OnCredentialsChanged()
         {
-            if (subscribed)
+            try
             {
-                await UnsubscribeAsync();
-            }
+                if (subscribed)
+                {
+                    await UnsubscribeAsync();
+                }
 
-            baseQuery = _credentials.baseChildQuery;
-            if (baseQuery != null)
+                baseQuery = _credentials.baseChildQuery;
+                if (baseQuery != null)
+                {
+                    authorized = true;
+                }
+
+                if (authorized)
+                {
+                    observingNode = baseQuery.Child(_targetNode);
+                    await Subscribe();
+                    subscribed = true;
+                }
+
+                UpdatedCredentials?.Invoke();
+            }
+            catch (Exception e)
             {
-                authorized = true;
+                Log($"Error handling credentials changed: {e.Message}");
             }
-
-            if (subscribed)
-            {
-                await Subscribe();
-            }
-
-            UpdatedCredentials?.Invoke();
         }
 
         /// <summary>

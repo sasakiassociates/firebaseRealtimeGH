@@ -10,6 +10,8 @@ namespace realtimeLogic
 {
     public class Credentials
     {
+        Logger _logger = Logger.GetInstance();
+
         private static Credentials instance;
         // TODO make this private
         public FirebaseClient firebaseClient;
@@ -20,6 +22,7 @@ namespace realtimeLogic
 
         private Credentials()
         {
+            Log("Initialized");
         }
 
         public static Credentials GetInstance()
@@ -41,17 +44,34 @@ namespace realtimeLogic
         {
             try
             {
-                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                // Check if the _pathToKeyFile exists
+                if (!System.IO.File.Exists(_pathToKeyFile))
+                {
+                    Log("The key file does not exist");
+                    return;
+                }
 
-                baseChildQuery = firebaseClient.Child(basePath);
+                try
+                {
+                    firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
 
-                isAuthorized = true;
-            } catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
+                    baseChildQuery = firebaseClient.Child(basePath);
+
+                    isAuthorized = true;
+                } catch (Exception e)
+                {
+                    Log("Error setting credentials: " + e.Message);
+                    return;
+                }
+
+                Log("Credentials set");
+
+                CredentialsChanged?.Invoke();
             }
-
-            CredentialsChanged?.Invoke();
+            catch (Exception e)
+            {
+                Log("Error setting credentials: " + e.Message);
+            }
         }
 
         /// <summary>
@@ -78,6 +98,16 @@ namespace realtimeLogic
             firebaseClient = null;
             baseChildQuery = null;
             isAuthorized = false;
+            Log("Credentials erased");
+        }
+
+        /// <summary>
+        /// Will log the given message to listeners to the LogEvent
+        /// </summary>
+        /// <param name="message"></param>
+        protected virtual void Log(string message)
+        {
+            _logger.Log(this, message);
         }
     }
 }

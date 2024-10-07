@@ -22,10 +22,11 @@
   <ItemGroup>
     <PackageReference Include="FirebaseDatabase.net" Version="4.2.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.64.0" />
+    <PackageReference Include="System.Reactive" Version="4.0.0" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;\\S00769FR01\users$\nshikada\AppData\Roaming\Grasshopper\Libraries\TableUI&quot;" />
+    <Exec Command="&#xD;&#xA;if $(ConfigurationName) == Release (&#xD;&#xA;Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;L:\sa_strategies\TableUI\installation files&quot; /y&#xD;&#xA;) else if $(ConfigurationName) == Debug (&#xD;&#xA;Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;%25AppData%25\Grasshopper\Libraries\TableUI&quot; /y&#xD;&#xA;)" />
   </Target>
 
 </Project>
