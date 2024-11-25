@@ -88,9 +88,9 @@ namespace realtimeTests
         [Test]
         public async Task ListChangedEventObserverTest()
         {
-            EventHandler<ListChangedEventArgs> listChangedEventHandler = (sender, e) =>
+            EventHandler<DictChangedEventArgs> listChangedEventHandler = (sender, e) =>
             {
-                foreach (var item in e.UpdatedList)
+                foreach (var item in e.UpdatedDict)
                 {
                     Marker marker;
                     try
@@ -105,7 +105,7 @@ namespace realtimeTests
                 }
             };
 
-            repository.ListChanged += listChangedEventHandler;
+            repository.DictChanged += listChangedEventHandler;
 
             await repository.Subscribe();
 
@@ -117,7 +117,7 @@ namespace realtimeTests
 
             await repository.DeleteNodeAsync($"/marker/childTest");
 
-            repository.ListChanged -= listChangedEventHandler;
+            repository.DictChanged -= listChangedEventHandler;
 
             await repository.UnsubscribeAsync();
 
@@ -127,9 +127,9 @@ namespace realtimeTests
         [Test]
         public async Task IsDeletedTest()
         {
-            EventHandler<ListChangedEventArgs> listChangedEventHandler = (sender, e) =>
+            EventHandler<DictChangedEventArgs> listChangedEventHandler = (sender, e) =>
             {
-                foreach (var item in e.UpdatedList)
+                foreach (var item in e.UpdatedDict)
                 {
                     Marker marker;
                     try
@@ -146,7 +146,7 @@ namespace realtimeTests
 
             Marker deletedMarker = new Marker { x = 10, y = 20, rotation = 45, is_deleted = true };
             Marker marker = new Marker { x = 10, y = 20, rotation = 45, is_deleted = false };
-            repository.ListChanged += listChangedEventHandler;
+            repository.DictChanged += listChangedEventHandler;
 
             await repository.Subscribe();
 

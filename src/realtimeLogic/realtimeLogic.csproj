@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="&#xD;&#xA;if $(ConfigurationName) == Release (&#xD;&#xA;Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;L:\sa_strategies\TableUI\installation files&quot; /y&#xD;&#xA;) else if $(ConfigurationName) == Debug (&#xD;&#xA;Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;%25AppData%25\Grasshopper\Libraries\TableUI&quot; /y&#xD;&#xA;)" />
+    <Exec Command="Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;%25AppData%25\Grasshopper\Libraries\TableUI&quot; /y&#xD;&#xA;&#xD;&#xA;if $(ConfigurationName) == Release (&#xD;&#xA;Copy &quot;$(TargetDir)realtimeLogic.dll&quot; &quot;L:\sa_strategies\TableUI\installation files&quot; /y&#xD;&#xA;)" />
   </Target>
 
 </Project>

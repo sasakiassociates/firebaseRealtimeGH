@@ -33,7 +33,7 @@ namespace realtimeLogic
         private Dictionary<string, object> _currentItems;
 
         // Event handlers for notifying changes
-        public event EventHandler<ListChangedEventArgs> ListChanged;
+        public event EventHandler<DictChangedEventArgs> DictChanged;
 
         public Repository(string name, string targetNode = "")
         {
@@ -186,7 +186,7 @@ namespace realtimeLogic
                         //Log($"Item added: {key}");
                     }
                 }
-                OnListChanged();
+                OnDictChanged();
             }
             catch (Exception e)
             {
@@ -210,7 +210,7 @@ namespace realtimeLogic
                 if (_currentItems.ContainsKey(key))
                 {
                     _currentItems.Remove(key);
-                    OnListChanged();
+                    OnDictChanged();
                     //Log($"Item removed: {key}");
                 }
             }
@@ -223,12 +223,12 @@ namespace realtimeLogic
         /// <summary>
         /// Will call the ListChanged event and debounce the callback function
         /// </summary>
-        protected virtual void OnListChanged()
+        protected virtual void OnDictChanged()
         {
             try
             {
                 // After the debounce period, call the ListChanged event
-                debouncer.Debounce(() => ListChanged?.Invoke(this, new ListChangedEventArgs(_currentItems)));
+                debouncer.Debounce(() => DictChanged?.Invoke(this, new DictChangedEventArgs(_currentItems)));
             }
             catch (Exception e)
             {
@@ -355,7 +355,7 @@ namespace realtimeLogic
         /// Does a one time pull of data from the database at the specified destination
         /// </summary>
         /// <param name="destination"></param>
-        public async Task<object> PullData(string destination)
+        public async Task<object> PullAsync(string destination)
         {
             try
             {
