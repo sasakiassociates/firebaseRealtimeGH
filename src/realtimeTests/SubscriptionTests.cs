@@ -7,31 +7,36 @@ using System.Threading.Tasks;
 
 using realtimeLogic;
 using Newtonsoft.Json.Linq;
+using Firebase.Database.Query;
+using Firebase.Database;
+using Google.Apis.Auth.OAuth2;
 
 namespace realtimeTests
 {
     public class SubscriptionTests
     {
         Repository _repo;
-        Credentials _creds;
+        FirebaseConnectionManager _creds;
+        Dictionary<string, object> nodeSentMessage = new Dictionary<string, object>();
 
         [SetUp]
         public async Task Setup()
         {
+            string keyPath = "L:\\sa_strategies\\TableUI\\key\\firebase_table-key.json";
             string databaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
-            string keyPath = "C:\\Users\\nshikada\\Documents\\GitHub\\table\\key\\firebase_table-key.json";
-            string projectName = "test_base";
-
-            _creds = Credentials.GetInstance();
-            _creds.SetSharedCredentials(keyPath, databaseUrl, $"bases/{projectName}");
-
-            _repo = new Repository("TestRepository");
+            _creds = FirebaseConnectionManager.GetInstance(keyPath, databaseUrl);
+            _creds.SetSharedCredentials(keyPath, databaseUrl);
+            _repo = _creds.CreateRepository("test-repo");
             await _repo.Subscribe();
         }
 
         [TearDown]
         public async Task TearDown()
         {
+            foreach (var item in nodeSentMessage)
+            {
+                await _repo.DeleteAsync(item.Key);
+            }
             await _repo.UnsubscribeAsync();
         }
 
@@ -39,11 +44,31 @@ namespace realtimeTests
         public async Task BasicSendTest()
         {
             string destination = "test";
-            string testJson = "{{\"text\": \"test\"}}";
+            JObject sendingObject = new JObject();
+            sendingObject["test"] = "test";
 
-            await _repo.PutAsync(destination, testJson);
+            await _repo.PutAsync(destination, sendingObject);
+            nodeSentMessage.Add(destination, sendingObject);
+            Console.WriteLine("Sent test message");
 
-            Task.Delay(1000).Wait();
+            var response = await _repo.PullAsync(destination);
+
+            if (response == null)
+            {
+                Assert.Fail();
+            }
+
+            JObject responseObject = JObject.Parse(response.ToString());
+
+            Console.WriteLine("Comparing " + sendingObject.ToString() + " to " + responseObject.ToString());
+            if (JToken.DeepEquals(sendingObject, responseObject))
+            {
+                Assert.Pass();
+            }
+            else
+            {
+                Assert.Fail();
+            }
         }
 
         [Test]

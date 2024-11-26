@@ -13,19 +13,20 @@ namespace realtimeLogic
         Logger _logger = Logger.GetInstance();
 
         private static FirebaseConnectionManager instance;
-        // TODO make this private
-        public FirebaseClient firebaseClient;
+        private FirebaseClient firebaseClient;
 
-        public event Action CredentialsChanged;
         public ChildQuery baseChildQuery;
         public bool isAuthorized = false;
 
-        private FirebaseConnectionManager()
+        List<Repository> repositories = new List<Repository>();
+
+        private FirebaseConnectionManager(string _pathToKeyFile, string _firebaseUrl)
         {
+            SetSharedCredentials(_pathToKeyFile, _firebaseUrl);
             Log("Initialized");
         }
 
-        public static FirebaseConnectionManager GetInstance()
+        public static FirebaseConnectionManager GetInstance(string _pathToKeyFile, string _firebaseUrl)
         {
             if (instance == null)
             {
@@ -33,7 +34,7 @@ namespace realtimeLogic
                 {
                     if (instance == null)
                     {
-                        instance = new FirebaseConnectionManager();
+                        instance = new FirebaseConnectionManager(_pathToKeyFile, _firebaseUrl);
                     }
                 }
             }
@@ -66,7 +67,6 @@ namespace realtimeLogic
 
                 Log("Credentials set");
 
-                CredentialsChanged?.Invoke();
             }
             catch (Exception e)
             {
@@ -99,6 +99,21 @@ namespace realtimeLogic
             baseChildQuery = null;
             isAuthorized = false;
             Log("Credentials erased");
+        }
+
+        public Repository CreateRepository(string name)
+        {
+            Repository repository = new Repository(name, baseChildQuery);
+            repositories.Add(repository);
+            return repository;
+        }
+
+        public async Task UnsubscribeAllAsync()
+        {
+            foreach (Repository repository in repositories)
+            {
+                await repository.UnsubscribeAsync();
+            }
         }
 
         /// <summary>

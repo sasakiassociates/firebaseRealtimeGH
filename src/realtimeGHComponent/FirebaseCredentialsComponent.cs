@@ -5,6 +5,8 @@ using Grasshopper.Kernel;
 using realtimeLogic;
 using Rhino.Geometry;
 
+using StrategistLibrary;
+
 namespace realtimeGHComponent
 {
     public class FirebaseCredentialsComponent : GH_Component
@@ -12,7 +14,7 @@ namespace realtimeGHComponent
         public string database_url;
         public string key_directory;
 
-        private Credentials credentials;
+        private FirebaseConnectionManager credentials;
 
         /// <summary>
         /// Initializes a new instance of the FirebaseCredentials class.
@@ -22,7 +24,8 @@ namespace realtimeGHComponent
               "A component to specify and authenticate the Firebase components",
               "Strategist", "Firebase")
         {
-            credentials = Credentials.GetInstance();
+            StrategistLogger.LogComponentAddedToCanvas(this);
+            credentials = FirebaseConnectionManager.GetInstance();
         }
 
         /// <summary>

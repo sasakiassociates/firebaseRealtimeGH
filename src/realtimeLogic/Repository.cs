@@ -12,12 +12,9 @@ namespace realtimeLogic
 {
     public class Repository
     {
-        string _targetNode;
         Logger _logger;
         public event Action UpdatedCredentials;                                     // Reference this action to reload the parent component when the credentials change
-
-        private Credentials _credentials;                                           // Globally shared credentials for the Firebase database
-        public ChildQuery baseQuery;                                                // Instance of the client to communicate with Firebase 
+        public ChildQuery _baseQuery;                                                // Instance of the client to communicate with Firebase 
 
         IDisposable subscription;
         
@@ -35,71 +32,19 @@ namespace realtimeLogic
         // Event handlers for notifying changes
         public event EventHandler<DictChangedEventArgs> DictChanged;
 
-        public Repository(string name, string targetNode = "")
+        internal Repository(string name, ChildQuery baseQuery)
         {
             try
             {
                 _logger = Logger.GetInstance();
                 Log("Initialized");
                 _name = name;
-                _credentials = Credentials.GetInstance();
-                _credentials.CredentialsChanged += OnCredentialsChanged;                // Subscribe to the credentials changed event
-                if (_credentials.baseChildQuery != null)
-                {
-                    baseQuery = _credentials.baseChildQuery;
-                    authorized = true;
-                }
+                _baseQuery = baseQuery;
                 _currentItems = new Dictionary<string, object>();
-                if (baseQuery != null && targetNode != "")
-                {
-                    try
-                    {
-                        SetTargetNode(targetNode);
-                    }
-                    catch
-                    {
-                        Log("Attempted to set target node before the Connect component was placed");
-                    }
-                }
             }
             catch (Exception e)
             {
                 Log($"Error initializing repository: {e.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Sets the target node for this repository. Should be called before subscribing to the database.
-        /// </summary>
-        /// <param name="targetNode"></param>
-        public async void SetTargetNode(string targetNode)
-        {
-            try
-            {
-                _targetNode = targetNode.Replace(" ", "_");
-                if (!authorized)
-                {
-                    Log("Not authorized to access the database");
-                    return;
-                }
-                try
-                {
-                    observingNode = baseQuery.Child(targetNode);
-                }
-                catch (Exception e)
-                {
-                    Log($"Error setting target node: {e.Message}");
-                    return;
-                }
-                if (subscribed)
-                {
-                    await UnsubscribeAsync();
-                    await Subscribe();
-                }
-            }
-            catch (Exception e)
-            {  
-                Log($"Error setting target node: {e.Message}");
             }
         }
 
@@ -268,7 +213,7 @@ namespace realtimeLogic
             }
         }
 
-        /// <summary>
+        /*/// <summary>
         /// Override the shared connections on this Repository with the given path to the key file and Firebase URL
         /// </summary>
         /// <param name="_pathToKeyFile"></param>
@@ -287,7 +232,7 @@ namespace realtimeLogic
 
                     if (_credentials.baseChildQuery != null)
                     {
-                        baseQuery = _credentials.baseChildQuery;
+                        _baseQuery = _credentials.baseChildQuery;
                         authorized = true;
                     }
                     return;
@@ -297,8 +242,8 @@ namespace realtimeLogic
                     // Unsubscribe from the shared credentials
                     _credentials.CredentialsChanged -= OnCredentialsChanged;
 
-                    FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => Credentials.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
-                    baseQuery = newClient.Child(basePath);
+                    FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => FirebaseConnectionManager.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                    _baseQuery = newClient.Child(basePath);
                     authorized = true;
                 }
             }
@@ -306,18 +251,18 @@ namespace realtimeLogic
             {
                 Log("Error overriding local connection");
             }
-        }
+        }*/
 
         /// <summary>
         /// Deletes the specified node from the database
         /// </summary>
         /// <param name="node"></param>
         /// <returns></returns>
-        public async Task DeleteNodeAsync(string node)
+        public async Task DeleteAsync(string node)
         {
             try
             {
-                await baseQuery.Child(node).DeleteAsync();
+                await _baseQuery.Child(node).DeleteAsync();
             }
             catch (Exception e)
             {
@@ -335,7 +280,7 @@ namespace realtimeLogic
         {
             try
             {
-                await baseQuery.Child(destination).PutAsync(data);
+                await _baseQuery.Child(destination).PutAsync(data);
             }
             catch (Exception e)
             {
@@ -351,46 +296,13 @@ namespace realtimeLogic
         {
             try
             {
-                var response = await baseQuery.Child(destination).OnceAsJsonAsync();
+                var response = await _baseQuery.Child(destination).OnceAsJsonAsync();
                 return response;
             }
             catch (Exception e)
             {
                 Log($"Error pulling data: {e.Message}");
                 return null;
-            }
-        }
-
-        /// <summary>
-        /// Runs whenever the Credentials class fires the CredentialsChanged event. We need to set the baseQuery to the new credentials and recreate the observers if we have any.
-        /// </summary>
-        public async void OnCredentialsChanged()
-        {
-            try
-            {
-                if (subscribed)
-                {
-                    await UnsubscribeAsync();
-                }
-
-                baseQuery = _credentials.baseChildQuery;
-                if (baseQuery != null)
-                {
-                    authorized = true;
-                }
-
-                if (authorized)
-                {
-                    observingNode = baseQuery.Child(_targetNode);
-                    await Subscribe();
-                    subscribed = true;
-                }
-
-                UpdatedCredentials?.Invoke();
-            }
-            catch (Exception e)
-            {
-                Log($"Error handling credentials changed: {e.Message}");
             }
         }
 

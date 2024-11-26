@@ -28,6 +28,7 @@
   </ItemGroup>
   
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Bitbucket\strategist\StrategistLibrary\StrategistLibrary.csproj" />
     <ProjectReference Include="..\realtimeLogic\realtimeLogic.csproj" />
   </ItemGroup>
   
