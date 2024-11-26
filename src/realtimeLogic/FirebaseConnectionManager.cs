@@ -20,13 +20,12 @@ namespace realtimeLogic
 
         List<Repository> repositories = new List<Repository>();
 
-        private FirebaseConnectionManager(string _pathToKeyFile, string _firebaseUrl)
+        private FirebaseConnectionManager()
         {
-            SetSharedCredentials(_pathToKeyFile, _firebaseUrl);
             Log("Initialized");
         }
 
-        public static FirebaseConnectionManager GetInstance(string _pathToKeyFile, string _firebaseUrl)
+        public static FirebaseConnectionManager GetInstance()
         {
             if (instance == null)
             {
@@ -34,7 +33,7 @@ namespace realtimeLogic
                 {
                     if (instance == null)
                     {
-                        instance = new FirebaseConnectionManager(_pathToKeyFile, _firebaseUrl);
+                        instance = new FirebaseConnectionManager();
                     }
                 }
             }
