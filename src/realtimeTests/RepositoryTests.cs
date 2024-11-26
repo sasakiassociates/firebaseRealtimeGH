@@ -23,7 +23,7 @@ namespace realtimeTests
             credentials = Credentials.GetInstance();
             credentials.SetSharedCredentials(keyPath, databaseUrl, projectName);
 
-            repository = new Repository(projectName);
+            repository = new Repository("test_repository");
             await repository.Subscribe();
         }
 
@@ -36,11 +36,52 @@ namespace realtimeTests
         [Test]
         public async Task BasicSendTest()
         {
-            string destination = "test";
+            string destination = "flags/test";
             string testJson = "test";
             await repository.PutAsync(destination, testJson);
             await repository.DeleteNodeAsync(destination);
         }
+
+        #region Subscribe Tests
+
+        /// <summary>
+        /// Tests the ability of subscribe to recieve updates to string data
+        /// </summary>
+        /// <returns></returns>
+        [Test]
+        public async Task SubscribeStringTest()
+        {
+            // Subscribe to the test node
+            string destination = "test";
+            string testJson = "text";
+            await repository.PutAsync(destination, testJson);
+        }
+
+        [Test]
+        public async Task SubscribeIntTest()
+        {
+
+        }
+
+        [Test]
+        public async Task SubscribeDoubleTest()
+        {
+
+        }
+
+        [Test]
+        public async Task SubscribeBoolTest()
+        {
+
+        }
+
+        [Test]
+        public async Task SubscribeObjectTest()
+        {
+
+        }
+
+        #endregion
 
         [Test]
         public async Task LogEventsTest()

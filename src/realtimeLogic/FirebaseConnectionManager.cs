@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace realtimeLogic
 {
-    public class Credentials
+    public class FirebaseConnectionManager
     {
         Logger _logger = Logger.GetInstance();
 
-        private static Credentials instance;
+        private static FirebaseConnectionManager instance;
         // TODO make this private
         public FirebaseClient firebaseClient;
 
@@ -20,20 +20,20 @@ namespace realtimeLogic
         public ChildQuery baseChildQuery;
         public bool isAuthorized = false;
 
-        private Credentials()
+        private FirebaseConnectionManager()
         {
             Log("Initialized");
         }
 
-        public static Credentials GetInstance()
+        public static FirebaseConnectionManager GetInstance()
         {
             if (instance == null)
             {
-                lock (typeof(Credentials))
+                lock (typeof(FirebaseConnectionManager))
                 {
                     if (instance == null)
                     {
-                        instance = new Credentials();
+                        instance = new FirebaseConnectionManager();
                     }
                 }
             }

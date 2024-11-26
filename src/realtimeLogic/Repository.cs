@@ -127,10 +127,6 @@ namespace realtimeLogic
                     // Listen for new items added to the database
                     subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
                         .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
-                    /* Listen for items removed from the database
-                     * Keeping this here in case we want to add an event for when an item is deleted
-                    deletionSubscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.Delete)
-                        .Subscribe(f => HandleItemDeleted(f.Key, f.Object));*/
 
                     Log("Subscribed");
                     subscribed = true;
@@ -167,25 +163,25 @@ namespace realtimeLogic
                 }
 
                 // ISSUE this might be the thing blocking the code when there are multiple updates in a single moment
-                if (item.Type == JTokenType.Object)
+                //if (item.Type == JTokenType.Object)
+                //{
+                // check the is_deleted field to see if we should delete the item from the local representation
+                if (item["is_deleted"] != null && (bool)item["is_deleted"])
                 {
-                    // check the is_deleted field to see if we should delete the item from the local representation
-                    if (item["is_deleted"] != null && (bool)item["is_deleted"])
-                    {
-                        HandleItemDeleted(key, item);
-                        return;
-                    }
-
-                    if (_currentItems.ContainsKey(key))
-                    {
-                        _currentItems[key] = item;
-                    }
-                    else
-                    {
-                        _currentItems.Add(key, item);
-                        //Log($"Item added: {key}");
-                    }
+                    HandleItemDeleted(key, item);
+                    return;
                 }
+
+                if (_currentItems.ContainsKey(key))
+                {
+                    _currentItems[key] = item;
+                }
+                else
+                {
+                    _currentItems.Add(key, item);
+                    //Log($"Item added: {key}");
+                }
+                //}
                 OnDictChanged();
             }
             catch (Exception e)
@@ -335,10 +331,6 @@ namespace realtimeLogic
         /// <param name="data"></param>
         /// <param name="destination"></param>
         /// <returns></returns>
-        /*public async Task PutAsync(string destination, List<object> dataPoints)
-        {
-            await baseQuery.Child(destination).PutAsync(dataPoints);
-        }*/
         public async Task PutAsync(string destination, object data)
         {
             try
