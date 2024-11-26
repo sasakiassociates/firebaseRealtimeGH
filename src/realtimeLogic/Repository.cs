@@ -21,8 +21,7 @@ namespace realtimeLogic
         // The name we'll put under the listener node when we subscribe
         public string _name;
 
-        public bool authorized = false;                                             // Whether the user is authorized to access the database
-        public bool subscribed = false;                                             // Whether the user is subscribed to the database
+        public bool isSubscribed = false;                                             // Whether the user is subscribed to the database
         Debouncer debouncer = new Debouncer();                                      // Debouncer to prevent multiple updates from firing
 
         private ChildQuery observingNode;                                           // The node this repository is observing
@@ -52,15 +51,11 @@ namespace realtimeLogic
         /// Makes a subscription to the database and listens for updates to the target folder. You can set callback functions on this class to run when the data is updated.
         /// </summary>
         /// <returns></returns>
-        public async Task Subscribe()
+        public async Task Subscribe(string targetNode = "")
         {
             try
             {
-                if (!authorized)
-                {
-                    Log("Not authorized to access the database");
-                    return;
-                }
+                observingNode = _baseQuery.Child(targetNode);
 
                 string date = DateTime.Now.ToString("yyyy-MM-dd");
                 string time = DateTime.Now.ToString("HH:mm:ss");
@@ -74,7 +69,7 @@ namespace realtimeLogic
                         .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
 
                     Log("Subscribed");
-                    subscribed = true;
+                    isSubscribed = true;
                 }
                 catch (Exception e)
                 {
@@ -194,7 +189,7 @@ namespace realtimeLogic
         {
             try
             {
-                if (subscribed) 
+                if (isSubscribed) 
                 {
                     await observingNode.Child($"listeners/{_name}").DeleteAsync();
                     subscription.Dispose();
@@ -205,7 +200,7 @@ namespace realtimeLogic
                     Log("No subscription to unsubscribe from");
                 }
 
-                subscribed = false;
+                isSubscribed = false;
             }
             catch (Exception e)
             {

@@ -117,7 +117,7 @@ namespace realtimeGHComponent
 
         public async Task SendData()
         {
-            if (_repository.authorized == false)
+            if (_repository.isAuthorized == false)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Not authorized to interact with Firebase. Are you using the credentials component?");
                 //_repository.WaitForConnection(cancellationToken);

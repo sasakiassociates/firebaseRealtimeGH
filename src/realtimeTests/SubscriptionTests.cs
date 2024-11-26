@@ -10,24 +10,32 @@ using Newtonsoft.Json.Linq;
 using Firebase.Database.Query;
 using Firebase.Database;
 using Google.Apis.Auth.OAuth2;
+using static Google.Apis.Requests.BatchRequest;
 
 namespace realtimeTests
 {
     public class SubscriptionTests
     {
+        Logger logger = Logger.GetInstance();
         Repository _repo;
         FirebaseConnectionManager _creds;
         Dictionary<string, object> nodeSentMessage = new Dictionary<string, object>();
+        string baseName;
+        string testBaseNode;
 
         [SetUp]
         public async Task Setup()
         {
             string keyPath = "L:\\sa_strategies\\TableUI\\key\\firebase_table-key.json";
             string databaseUrl = "https://magpietable-default-rtdb.firebaseio.com/";
-            _creds = FirebaseConnectionManager.GetInstance(keyPath, databaseUrl);
+            _creds = FirebaseConnectionManager.GetInstance();
             _creds.SetSharedCredentials(keyPath, databaseUrl);
+
+            baseName = "TestBase";
+            testBaseNode = $"bases/{baseName}";
+
             _repo = _creds.CreateRepository("test-repo");
-            await _repo.Subscribe();
+            await _repo.Subscribe(testBaseNode);
         }
 
         [TearDown]
@@ -38,6 +46,15 @@ namespace realtimeTests
                 await _repo.DeleteAsync(item.Key);
             }
             await _repo.UnsubscribeAsync();
+
+            string logs = logger.ReadLog();
+            Console.WriteLine(logs);
+        }
+
+        [Test]
+        public void SubscribeTest()
+        {
+            Assert.That(_repo.isSubscribed);
         }
 
         [Test]
@@ -75,13 +92,15 @@ namespace realtimeTests
         public async Task StringTest()
         {
             bool recievedString = false;
-            string testJson = "{{\"text\": \"test\"}}";
+            JObject sendingObject = new JObject();
+            sendingObject["test"] = "test";
 
             EventHandler<DictChangedEventArgs> handler = (sender, e) =>
             {
                 foreach(var item in e.UpdatedDict)
                 {
-                    if (item.Value.ToString() == testJson)
+                    JObject responseObject = JObject.Parse(item.ToString());
+                    if (JToken.DeepEquals(responseObject, sendingObject))
                     {
                         recievedString = true;
                     }
@@ -89,7 +108,8 @@ namespace realtimeTests
             };
 
             string destination = "test";
-            await _repo.PutAsync(destination, testJson);
+            await _repo.PutAsync(destination, sendingObject);
+            nodeSentMessage.Add(destination, sendingObject);
 
             Assert.IsTrue(recievedString);
         }
