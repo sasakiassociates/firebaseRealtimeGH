@@ -14,7 +14,7 @@ namespace realtimeGHComponent
         public string database_url;
         public string key_directory;
 
-        private FirebaseConnectionManager credentials;
+        private FirebaseConnectionManager databaseManager;
 
         /// <summary>
         /// Initializes a new instance of the FirebaseCredentials class.
@@ -25,7 +25,7 @@ namespace realtimeGHComponent
               "Strategist", "Firebase")
         {
             StrategistLogger.LogComponentAddedToCanvas(this);
-            credentials = FirebaseConnectionManager.GetInstance();
+            databaseManager = FirebaseConnectionManager.GetInstance();
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace realtimeGHComponent
             DA.GetData("Key directory", ref key_directory);
             DA.GetData("Database URL", ref database_url);
 
-            credentials.SetSharedCredentials(key_directory, database_url);
+            databaseManager.SetSharedCredentials(key_directory, database_url);
         }
 
         /// <summary>

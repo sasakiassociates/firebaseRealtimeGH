@@ -35,7 +35,7 @@ namespace realtimeTests
             testBaseNode = $"bases/{baseName}";
 
             _repo = _creds.CreateRepository("test-repo");
-            await _repo.Subscribe(testBaseNode);
+            await _repo.SubscribeAsync(testBaseNode);
         }
 
         [TearDown]
@@ -97,7 +97,9 @@ namespace realtimeTests
 
             EventHandler<DictChangedEventArgs> handler = (sender, e) =>
             {
-                foreach(var item in e.UpdatedDict)
+                Console.WriteLine("Recieved message");
+                Console.WriteLine(e.UpdatedDict);
+                foreach (var item in e.UpdatedDict)
                 {
                     JObject responseObject = JObject.Parse(item.ToString());
                     if (JToken.DeepEquals(responseObject, sendingObject))
@@ -107,9 +109,13 @@ namespace realtimeTests
                 }
             };
 
+            _repo.DictChanged += handler;
+
             string destination = "test";
             await _repo.PutAsync(destination, sendingObject);
             nodeSentMessage.Add(destination, sendingObject);
+
+            await Task.Delay(1000);
 
             Assert.IsTrue(recievedString);
         }

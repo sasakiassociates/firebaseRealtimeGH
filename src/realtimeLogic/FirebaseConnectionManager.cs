@@ -20,6 +20,8 @@ namespace realtimeLogic
 
         List<Repository> repositories = new List<Repository>();
 
+        public event Action UpdatedCredentials;
+
         private FirebaseConnectionManager()
         {
             Log("Initialized");
@@ -51,21 +53,19 @@ namespace realtimeLogic
                     return;
                 }
 
-                try
-                {
-                    firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                firebaseClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => GetAccessToken(_pathToKeyFile), AsAccessToken = true });
+                baseChildQuery = firebaseClient.Child(basePath);
 
-                    baseChildQuery = firebaseClient.Child(basePath);
+                isAuthorized = true;
 
-                    isAuthorized = true;
-                } catch (Exception e)
+                foreach (Repository repository in repositories)
                 {
-                    Log("Error setting credentials: " + e.Message);
-                    return;
+                    repository.UpdateCredentials(baseChildQuery);
                 }
 
-                Log("Credentials set");
+                UpdatedCredentials?.Invoke();
 
+                Log("Credentials set");
             }
             catch (Exception e)
             {
@@ -100,10 +100,11 @@ namespace realtimeLogic
             Log("Credentials erased");
         }
 
-        public Repository CreateRepository(string name)
+        public static Repository CreateRepository(string name)
         {
-            Repository repository = new Repository(name, baseChildQuery);
-            repositories.Add(repository);
+            FirebaseConnectionManager manager = GetInstance();
+            Repository repository = new Repository(name, manager.baseChildQuery);
+            manager.repositories.Add(repository);
             return repository;
         }
 

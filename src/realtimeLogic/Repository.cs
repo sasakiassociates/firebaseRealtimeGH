@@ -20,6 +20,7 @@ namespace realtimeLogic
         
         // The name we'll put under the listener node when we subscribe
         public string _name;
+        internal bool selfAuthorized = false;                                            // Whether the user is authorized to access the database
 
         public bool isSubscribed = false;                                             // Whether the user is subscribed to the database
         Debouncer debouncer = new Debouncer();                                      // Debouncer to prevent multiple updates from firing
@@ -51,7 +52,7 @@ namespace realtimeLogic
         /// Makes a subscription to the database and listens for updates to the target folder. You can set callback functions on this class to run when the data is updated.
         /// </summary>
         /// <returns></returns>
-        public async Task Subscribe(string targetNode = "")
+        public async Task SubscribeAsync(string targetNode = "")
         {
             try
             {
@@ -208,45 +209,45 @@ namespace realtimeLogic
             }
         }
 
-        /*/// <summary>
+        /// <summary>
         /// Override the shared connections on this Repository with the given path to the key file and Firebase URL
         /// </summary>
         /// <param name="_pathToKeyFile"></param>
         /// <param name="_firebaseUrl"></param>
         /// <param name="basePath"></param>
-        /// <returns></returns>
-        public void OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
+        /// <returns>
+        /// 
+        /// </returns>
+        public bool OverrideLocalConnection(string _pathToKeyFile, string _firebaseUrl, string basePath = "")
         {
             try
             {
-                authorized = false;
                 if (_pathToKeyFile == null && _firebaseUrl == null)
                 {
-                    // Resubscribe to the shared credentials if no local credentials are provided
-                    _credentials.CredentialsChanged += OnCredentialsChanged;
-
-                    if (_credentials.baseChildQuery != null)
-                    {
-                        _baseQuery = _credentials.baseChildQuery;
-                        authorized = true;
-                    }
-                    return;
+                    selfAuthorized = false;
                 }
                 else
                 {
-                    // Unsubscribe from the shared credentials
-                    _credentials.CredentialsChanged -= OnCredentialsChanged;
-
                     FirebaseClient newClient = new FirebaseClient(_firebaseUrl, new FirebaseOptions { AuthTokenAsyncFactory = () => FirebaseConnectionManager.GetAccessToken(_pathToKeyFile), AsAccessToken = true });
                     _baseQuery = newClient.Child(basePath);
-                    authorized = true;
+                    selfAuthorized = true;
+                    UpdatedCredentials?.Invoke();
                 }
             }
             catch
             {
+                selfAuthorized = false;
                 Log("Error overriding local connection");
             }
-        }*/
+            return selfAuthorized;
+        }
+
+        public void UpdateCredentials(ChildQuery newQuery)
+        {
+            Task.Run(async () => await UnsubscribeAsync()).Wait();
+            _baseQuery = newQuery;
+            Task.Run(async () => await SubscribeAsync()).Wait();
+        }
 
         /// <summary>
         /// Deletes the specified node from the database
@@ -304,10 +305,16 @@ namespace realtimeLogic
         /// <summary>
         /// Reload the subscription to the database
         /// </summary>
-        public async void Reload()
+        public async Task Reload()
         {
-            await UnsubscribeAsync();
-            await Subscribe();
+            try
+            {
+                await UnsubscribeAsync();
+                await SubscribeAsync();
+            } catch (Exception e)
+            {
+                Log($"Error reloading {_name} repository: {e.Message}");
+            }
         }
     }
 }

@@ -22,7 +22,7 @@ namespace firebaseRealtime
         private CancellationToken cancellationToken;
         private Repository repository;
 
-        public string incomingData;
+        public Dictionary<string, object> incomingData;
         private bool listening = false;
 
         // Inputs
@@ -42,7 +42,7 @@ namespace firebaseRealtime
             "Description",
             "Strategist", "Firebase")
         {
-            repository = new Repository();
+            repository = FirebaseConnectionManager.CreateRepository("FirebaseReceive");
         }
 
         /// <summary>
@@ -99,7 +99,8 @@ namespace firebaseRealtime
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
 
-                Task.Run(async () => { await repository.Subscribe(incomingTargetNode, SubscriptionCallback); }).Wait();
+                SetUpEventHandler();
+                Task.Run(async () => { await repository.SubscribeAsync(incomingTargetNode); }).Wait();
 
                 listening = true;
             }
@@ -108,22 +109,26 @@ namespace firebaseRealtime
             {
                 Task.Run(async () => { await repository.UnsubscribeAsync(); }).Wait();
                 targetNode = incomingTargetNode;
-                Task.Run(async () => { await repository.Subscribe(incomingTargetNode, SubscriptionCallback); }).Wait();
+                Task.Run(async () => { await repository.SubscribeAsync(incomingTargetNode); }).Wait();
             }
 
             DA.SetData("Incoming Data", incomingData);
         }
 
-        private void SubscriptionCallback(string data)
+        private void SetUpEventHandler()
         {
-            incomingData = data;
-
-            // Rerun the component
-            Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+            EventHandler<DictChangedEventArgs> SubscriptionCallback = (sender, args) =>
             {
-                this.ExpireSolution(true);
-            });
+                incomingData = args.UpdatedDict;
+
+                // Rerun the component
+                Rhino.RhinoApp.InvokeOnUiThread((Action)delegate
+                {
+                    this.ExpireSolution(true);
+                });
+            };
         }
+
 
 
         /// <summary>

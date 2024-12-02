@@ -12,7 +12,7 @@ namespace realtimeLogic
         public Debouncer() 
         {
             _logger = Logger.GetInstance();
-            _logger.Log(this, "initialized");
+            _logger.Log(this, "Initialized");
         }
 
         public void SetDebounceDelay(int milliseconds)
