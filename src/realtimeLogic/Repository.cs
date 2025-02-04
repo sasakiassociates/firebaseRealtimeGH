@@ -103,9 +103,6 @@ namespace realtimeLogic
                     return;
                 }
 
-                // ISSUE this might be the thing blocking the code when there are multiple updates in a single moment
-                //if (item.Type == JTokenType.Object)
-                //{
                 // check the is_deleted field to see if we should delete the item from the local representation
                 if (item["is_deleted"] != null && (bool)item["is_deleted"])
                 {
