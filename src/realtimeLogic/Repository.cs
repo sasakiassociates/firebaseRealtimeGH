@@ -7,12 +7,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using StrategistLibrary;
 
 namespace realtimeLogic
 {
     public class Repository
     {
-        Logger _logger;
         public event Action UpdatedCredentials;                                     // Reference this action to reload the parent component when the credentials change
         public ChildQuery _baseQuery;                                                // Instance of the client to communicate with Firebase 
 
@@ -34,18 +34,9 @@ namespace realtimeLogic
 
         internal Repository(string name, ChildQuery baseQuery)
         {
-            try
-            {
-                _logger = Logger.GetInstance();
-                Log("Initialized");
-                _name = name;
-                _baseQuery = baseQuery;
-                _currentItems = new Dictionary<string, object>();
-            }
-            catch (Exception e)
-            {
-                Log($"Error initializing repository: {e.Message}");
-            }
+            _name = name;
+            _baseQuery = baseQuery;
+            _currentItems = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -54,33 +45,19 @@ namespace realtimeLogic
         /// <returns></returns>
         public async Task SubscribeAsync(string targetNode = "")
         {
-            try
-            {
-                observingNode = _baseQuery.Child(targetNode);
+            observingNode = _baseQuery.Child(targetNode);
 
-                string date = DateTime.Now.ToString("yyyy-MM-dd");
-                string time = DateTime.Now.ToString("HH:mm:ss");
-                // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is already data in the folder)
-                await observingNode.Child($"listeners/{_name}").PutAsync($"{{\"Subscribed at\": \"{date}|{time}\"}}");
+            string date = DateTime.Now.ToString("yyyy-MM-dd");
+            string time = DateTime.Now.ToString("HH:mm:ss");
+            // Put a placeholder in the listeners folder to indicate that this observer is listening (subscribe only works when there is already data in the folder)
+            await observingNode.Child($"listeners/{_name}").PutAsync($"{{\"Subscribed at\": \"{date}|{time}\"}}");
 
-                try
-                {
-                    // Listen for new items added to the database
-                    subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
-                        .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
+            // Listen for new items added to the database
+            subscription = observingNode.AsObservable<JToken>().Where(f => f.EventType == FirebaseEventType.InsertOrUpdate)
+                .Subscribe(f => HandleItemAddedOrUpdated(f.Key, f.Object));
 
-                    Log("Subscribed");
-                    isSubscribed = true;
-                }
-                catch (Exception e)
-                {
-                    Log($"Error subscribing: {e.Message}");
-                }
-            }
-            catch (Exception e)
-            {
-                Log($"Error subscribing: {e.Message}");
-            }
+            Log("Subscribed");
+            isSubscribed = true;
         }
 
         // Called when an object in the subscribed node is updated
@@ -176,7 +153,8 @@ namespace realtimeLogic
         /// <param name="message"></param>
         protected virtual void Log(string message)
         {
-            _logger.Log(this, message);
+            string[] sources = new string[] { "Repository" };
+            StrategistLogger.LogCustomMessage(StrategistLogger.LogLevel.Debug, sources, message);
         }
 
         /// <summary>

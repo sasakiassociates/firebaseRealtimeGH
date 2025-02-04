@@ -1,6 +1,7 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
 using Google.Apis.Auth.OAuth2;
+using StrategistLibrary;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,8 +11,6 @@ namespace realtimeLogic
 {
     public class FirebaseConnectionManager
     {
-        Logger _logger = Logger.GetInstance();
-
         private static FirebaseConnectionManager instance;
         private FirebaseClient firebaseClient;
 
@@ -24,7 +23,6 @@ namespace realtimeLogic
 
         private FirebaseConnectionManager()
         {
-            Log("Initialized");
         }
 
         public static FirebaseConnectionManager GetInstance()
@@ -122,7 +120,8 @@ namespace realtimeLogic
         /// <param name="message"></param>
         protected virtual void Log(string message)
         {
-            _logger.Log(this, message);
+            string[] sources = { "FirebaseConnectionManager" };
+            StrategistLogger.LogCustomMessage(StrategistLogger.LogLevel.Debug, sources, message);
         }
     }
 }
